@@ -37,9 +37,10 @@ DEFEND_REDUCTION = 1   # 防御减伤
 
 # 爆血配置
 BURST_SELF_DAMAGE = 3      # 爆血自损
-BURST_BASE_DAMAGE = 3      # 爆血基础伤害
+BURST_BASE_DAMAGE = 6      # 爆血基础伤害（改为6）
 BURST_MISS_DAMAGE = 6      # 爆血未击中自损
 BURST_RANGE = 1            # 爆血距离
+BURST_KNOCKBACK = 2        # 爆血击退距离
 
 # 蓄力配置
 CHARGE_FRAMES = 2          # 完整蓄力帧数
@@ -128,6 +129,7 @@ UI_TEXT = {
     # 硬直相关提示
     'frame_locked': '🔒 第{frame}帧被硬直锁定',
     'stun_locked': '😵 硬直中，无法输入',
+    'controlled_limit': '⛓️ 被控制，只能使用6(防御)或9(爆血)',
     
     # 警告提示
     'alice_needs_more': '⚠ Alice还需要选择 {count} 个行动',

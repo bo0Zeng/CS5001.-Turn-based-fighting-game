@@ -23,6 +23,14 @@ class CombatManager:
         self.player2 = player2
         self.turn = 0
         self.battle_log = []  # 战斗日志
+        
+        # 确定玩家的左右位置（根据初始位置）
+        if player1.position < player2.position:
+            player1.is_left = True
+            player2.is_left = False
+        else:
+            player1.is_left = False
+            player2.is_left = True
     
     def get_distance(self):
         """计算两个玩家之间的距离"""
@@ -79,23 +87,70 @@ class CombatManager:
                 print(f"🔒 {self.player2.name} 第{current_frame}帧被硬直锁定！")
                 p2_action = None
             
-            # 检查被控制状态
-            if self.player1.controlled and p1_action:
-                print(f"⛓️ {self.player1.name} 被控制，无法行动！")
+            # 检查行动取消状态（控制导致的）
+            if self.player1.actions_cancelled and p1_action:
+                print(f"⛔ {self.player1.name} 行动已被取消！")
                 p1_action = None
             
-            if self.player2.controlled and p2_action:
-                print(f"⛓️ {self.player2.name} 被控制，无法行动！")
+            if self.player2.actions_cancelled and p2_action:
+                print(f"⛔ {self.player2.name} 行动已被取消！")
                 p2_action = None
+            
+            # 检查被控制状态（被控制时只能用防御和爆血）
+            if self.player1.controlled and p1_action:
+                if p1_action not in ['defend', 'burst']:
+                    print(f"⛓️ {self.player1.name} 被控制，只能使用防御或爆血！")
+                    p1_action = None
+            
+            if self.player2.controlled and p2_action:
+                if p2_action not in ['defend', 'burst']:
+                    print(f"⛓️ {self.player2.name} 被控制，只能使用防御或爆血！")
+                    p2_action = None
             
             # 执行行动（同时执行）
             if p1_action:
                 self._execute_action(self.player1, self.player2, p1_action, 
                                    self.turn, current_frame)
+                
+                # 控制者执行非移动动作，解除控制并推开对手
+                if self.player2.controlled and p1_action not in ['move_forward', 'move_back', 'dash']:
+                    if p1_action not in ['control', 'grab', 'throw']:  # grab和throw已经处理了推开
+                        print(f"🔓 {self.player1.name}执行了{p1_action}，解除对{self.player2.name}的控制")
+                        
+                        # 将被控制者推开1格
+                        old_pos = self.player2.position
+                        if self.player2.is_left:
+                            new_pos = max(1, self.player2.position - 1)
+                        else:
+                            new_pos = min(MAP_SIZE, self.player2.position + 1)
+                        
+                        self.player2.position = new_pos
+                        if new_pos != old_pos:
+                            print(f"   {self.player2.name} 被推到位置 {self.player2.position}")
+                        
+                        self.player2.controlled = False
             
             if p2_action:
                 self._execute_action(self.player2, self.player1, p2_action, 
                                    self.turn, current_frame)
+                
+                # 控制者执行非移动动作，解除控制并推开对手
+                if self.player1.controlled and p2_action not in ['move_forward', 'move_back', 'dash']:
+                    if p2_action not in ['control', 'grab', 'throw']:  # grab和throw已经处理了推开
+                        print(f"🔓 {self.player2.name}执行了{p2_action}，解除对{self.player1.name}的控制")
+                        
+                        # 将被控制者推开1格
+                        old_pos = self.player1.position
+                        if self.player1.is_left:
+                            new_pos = max(1, self.player1.position - 1)
+                        else:
+                            new_pos = min(MAP_SIZE, self.player1.position + 1)
+                        
+                        self.player1.position = new_pos
+                        if new_pos != old_pos:
+                            print(f"   {self.player1.name} 被推到位置 {self.player1.position}")
+                        
+                        self.player1.controlled = False
             
             # 检查胜负
             if not self.player1.is_alive() or not self.player2.is_alive():
@@ -138,13 +193,13 @@ class CombatManager:
         elif action == "defend":
             Actions.defend(actor)
         
-        # 移动类
+        # 移动类（需要传递opponent参数）
         elif action == "move_forward":
-            Actions.move_forward(actor)
+            Actions.move_forward(actor, target)
         elif action == "move_back":
-            Actions.move_back(actor)
+            Actions.move_back(actor, target)
         elif action == "dash":
-            Actions.dash(actor)
+            Actions.dash(actor, target)
         
         # 特殊类
         elif action == "burst":

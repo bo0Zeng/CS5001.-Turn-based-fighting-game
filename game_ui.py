@@ -148,7 +148,15 @@ class GameUI:
             self.screen.blit(text, text_rect)
 
     def draw_player(self, player, color):
-        """绘制玩家"""
+        """绘制玩家（处理重叠情况）"""
+        distance = self.combat.get_distance()
+        
+        # 如果距离为0（重叠），只显示控制者
+        if distance == 0:
+            if player.controlled:
+                # 这个玩家被控制，不显示
+                return
+        
         x = GRID_START_X + (player.position - 1) * CELL_WIDTH + CELL_WIDTH // 2
         y = GRID_START_Y + CELL_HEIGHT // 2
 
@@ -250,7 +258,7 @@ class GameUI:
             return "____", YELLOW
 
     def draw_input_status(self):
-        """绘制输入状态（显示硬直锁定）"""
+        """绘制输入状态（显示硬直锁定）- 双盲模式"""
         x = GRID_START_X + 300
         y = GRID_START_Y + CELL_HEIGHT + 120
 
@@ -262,23 +270,23 @@ class GameUI:
         
         next_turn = self.combat.turn + 1
 
-        # 玩家1行动
-        frame1_text, frame1_color = self._get_frame_display(
-            self.player1, 0, self.p1_actions, self.p1_locked
-        )
-        frame2_text, frame2_color = self._get_frame_display(
-            self.player1, 1, self.p1_actions, self.p1_locked
-        )
-        
-        # 检查是否当前玩家且未锁定
+        # 玩家1行动 - 只有当前是玩家1时才显示详细信息
         if self.current_player == 1 and not self.p1_locked:
+            # 玩家1正在输入，显示详细信息
+            frame1_text, frame1_color = self._get_frame_display(
+                self.player1, 0, self.p1_actions, self.p1_locked
+            )
+            frame2_text, frame2_color = self._get_frame_display(
+                self.player1, 1, self.p1_actions, self.p1_locked
+            )
             p1_text = f"{PLAYER1_NAME}: [{frame1_text}] [{frame2_text}]"
-            # 使用第二帧的颜色（因为它反映当前状态）
             bg_color = frame2_color if len(self.p1_actions) >= 1 else frame1_color
         elif self.p1_locked:
-            p1_text = f"{PLAYER1_NAME}: [{frame1_text}] [{frame2_text}]"
+            # 玩家1已锁定，显示已确认但不显示具体内容
+            p1_text = f"{PLAYER1_NAME}: [✓✓✓] [✓✓✓]"
             bg_color = LIGHT_RED
         else:
+            # 玩家1还未输入（当前是玩家2的回合）
             p1_text = f"{PLAYER1_NAME}: [***] [***]"
             bg_color = LIGHT_RED
 
@@ -286,22 +294,24 @@ class GameUI:
         text = self.small_font.render(p1_text, True, BLACK)
         self.screen.blit(text, (x, y))
 
-        # 玩家2行动
+        # 玩家2行动 - 只有当前是玩家2时才显示详细信息
         y += 50
-        frame1_text, frame1_color = self._get_frame_display(
-            self.player2, 0, self.p2_actions, self.p2_locked
-        )
-        frame2_text, frame2_color = self._get_frame_display(
-            self.player2, 1, self.p2_actions, self.p2_locked
-        )
-        
         if self.current_player == 2 and not self.p2_locked:
+            # 玩家2正在输入，显示详细信息
+            frame1_text, frame1_color = self._get_frame_display(
+                self.player2, 0, self.p2_actions, self.p2_locked
+            )
+            frame2_text, frame2_color = self._get_frame_display(
+                self.player2, 1, self.p2_actions, self.p2_locked
+            )
             p2_text = f"{PLAYER2_NAME}:   [{frame1_text}] [{frame2_text}]"
             bg_color = frame2_color if len(self.p2_actions) >= 1 else frame1_color
         elif self.p2_locked:
-            p2_text = f"{PLAYER2_NAME}:   [{frame1_text}] [{frame2_text}]"
+            # 玩家2已锁定，显示已确认但不显示具体内容
+            p2_text = f"{PLAYER2_NAME}:   [✓✓✓] [✓✓✓]"
             bg_color = LIGHT_BLUE
         else:
+            # 玩家2还未输入（当前是玩家1的回合）
             p2_text = f"{PLAYER2_NAME}:   [***] [***]"
             bg_color = LIGHT_BLUE
 
@@ -319,38 +329,50 @@ class GameUI:
         elif not self.p1_locked and not self.p2_locked:
             if self.current_player == 1:
                 next_turn = self.combat.turn + 1
-                # 找到下一个需要输入的帧
-                next_input_frame = None
-                for frame_idx in range(2):
-                    frame_num = frame_idx + 1
-                    if not self.player1.is_frame_locked(next_turn, frame_num) and frame_idx >= len(self.p1_actions):
-                        next_input_frame = frame_num
-                        break
                 
-                if next_input_frame is None:
-                    # 所有帧都已输入或锁定
-                    hint = UI_TEXT['selection_complete']
-                    color = ORANGE
+                # 检查是否被控制
+                if self.player1.controlled:
+                    hint = UI_TEXT['controlled_limit']
+                    color = RED
                 else:
-                    hint = UI_TEXT['alice_turn'].format(frame=next_input_frame)
-                    color = GREEN
+                    # 找到下一个需要输入的帧
+                    next_input_frame = None
+                    for frame_idx in range(2):
+                        frame_num = frame_idx + 1
+                        if not self.player1.is_frame_locked(next_turn, frame_num) and frame_idx >= len(self.p1_actions):
+                            next_input_frame = frame_num
+                            break
+                    
+                    if next_input_frame is None:
+                        # 所有帧都已输入或锁定
+                        hint = UI_TEXT['selection_complete']
+                        color = ORANGE
+                    else:
+                        hint = UI_TEXT['alice_turn'].format(frame=next_input_frame)
+                        color = GREEN
             else:
                 next_turn = self.combat.turn + 1
-                # 找到下一个需要输入的帧
-                next_input_frame = None
-                for frame_idx in range(2):
-                    frame_num = frame_idx + 1
-                    if not self.player2.is_frame_locked(next_turn, frame_num) and frame_idx >= len(self.p2_actions):
-                        next_input_frame = frame_num
-                        break
                 
-                if next_input_frame is None:
-                    # 所有帧都已输入或锁定
-                    hint = UI_TEXT['selection_complete']
-                    color = ORANGE
+                # 检查是否被控制
+                if self.player2.controlled:
+                    hint = UI_TEXT['controlled_limit']
+                    color = RED
                 else:
-                    hint = UI_TEXT['bob_turn'].format(frame=next_input_frame)
-                    color = GREEN
+                    # 找到下一个需要输入的帧
+                    next_input_frame = None
+                    for frame_idx in range(2):
+                        frame_num = frame_idx + 1
+                        if not self.player2.is_frame_locked(next_turn, frame_num) and frame_idx >= len(self.p2_actions):
+                            next_input_frame = frame_num
+                            break
+                    
+                    if next_input_frame is None:
+                        # 所有帧都已输入或锁定
+                        hint = UI_TEXT['selection_complete']
+                        color = ORANGE
+                    else:
+                        hint = UI_TEXT['bob_turn'].format(frame=next_input_frame)
+                        color = GREEN
             text = self.small_font.render(hint, True, color)
             self.screen.blit(text, (x, y))
         elif self.p1_locked and not self.p2_locked:
@@ -559,6 +581,12 @@ class GameUI:
                     
                     key = key_map[event.key]
                     action = self.action_map[key]
+                    
+                    # 检查被控制时的行动限制
+                    if self.player1.controlled and action not in ['defend', 'burst']:
+                        print(f"⛓️ {PLAYER1_NAME}被控制，只能使用防御或爆血！")
+                        return
+                    
                     self.p1_actions.append(action)
                     self.current_frame = len(self.p1_actions) + 1
                     print(f"{PLAYER1_NAME}选择第{target_frame}帧: {self.action_names[action]}")
@@ -594,6 +622,12 @@ class GameUI:
                     
                     key = letter_map[event.key]
                     action = self.action_map[key]
+                    
+                    # 检查被控制时的行动限制
+                    if self.player2.controlled and action not in ['defend', 'burst']:
+                        print(f"⛓️ {PLAYER2_NAME}被控制，只能使用防御或爆血！")
+                        return
+                    
                     self.p2_actions.append(action)
                     self.current_frame = len(self.p2_actions) + 1
                     print(f"{PLAYER2_NAME}选择第{target_frame}帧: {self.action_names[action]}")

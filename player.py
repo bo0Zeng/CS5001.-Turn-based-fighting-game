@@ -26,6 +26,8 @@ class Player:
         self.controlled = False      # 是否被控制
         self.defending = False       # 是否在防御
         self.combo_count = 0         # 连击计数
+        self.is_left = None          # 是否在左边（True=左边，False=右边，None=未确定）
+        self.actions_cancelled = False  # 当前回合行动是否被取消
         
         # 新硬直机制
         self.stun_frames_remaining = 0  # 剩余硬直帧数
@@ -146,6 +148,8 @@ class Player:
             states.append("冲锋")
         if self.combo_count > 0:
             states.append(f"连击{self.combo_count}/3")
+        if self.actions_cancelled:
+            states.append("行动取消")
         
         if states:
             status += " [" + ", ".join(states) + "]"
@@ -155,6 +159,7 @@ class Player:
     def reset_frame_status(self):
         """重置单帧状态（每帧结束时调用）"""
         self.defending = False
+        self.actions_cancelled = False  # 重置行动取消标记
     
     def update_turn_status(self):
         """更新回合状态（每回合结束时调用）"""
