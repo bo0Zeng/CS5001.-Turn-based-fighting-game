@@ -1,6 +1,6 @@
 """
 combat_manager.py
-战斗管理器 - 管理整个战斗流程（完整最终版）
+战斗管理器 - Bug修复版（基于旧版本）
 """
 
 from player import Player
@@ -9,7 +9,7 @@ from config import *
 
 
 class CombatManager:
-    """战斗管理器 - 控制战斗流程"""
+    """战斗管理器"""
     
     def __init__(self, player1, player2):
         """初始化战斗"""
@@ -27,7 +27,7 @@ class CombatManager:
             player2.is_left = True
     
     def get_distance(self):
-        """计算两个玩家之间的距离"""
+        """计算距离"""
         return abs(self.player1.position - self.player2.position)
     
     def show_battle_status(self):
@@ -39,14 +39,10 @@ class CombatManager:
         print(SEPARATOR)
     
     def execute_turn(self, p1_actions, p2_actions):
-        """
-        执行一个回合（2帧）
-        返回每帧的执行结果列表
-        """
+        """执行一个回合（2帧）"""
         self.turn += 1
         self.show_battle_status()
         
-        # 清理过期的锁定
         self.player1.clear_expired_locks(self.turn)
         self.player2.clear_expired_locks(self.turn)
         
@@ -92,7 +88,7 @@ class CombatManager:
                 print(f"⛔ {self.player2.name} 行动已被取消！")
                 p2_action = None
             
-            # 检查被控制状态（只能用防御和爆血）
+            # 检查被控制状态
             if self.player1.controlled and p1_action:
                 if p1_action not in ['defend', 'burst']:
                     print(f"⛓️ {self.player1.name} 被控制，只能使用防御或爆血！")
@@ -120,8 +116,7 @@ class CombatManager:
     def _execute_frame(self, p1_action, p2_action, current_frame):
         """
         执行单帧的行动
-        分两个阶段：1.移动阶段 2.技能阶段
-        返回执行结果字典
+        分三个阶段：1.移动阶段 2.防御阶段 3.技能阶段
         """
         result = {
             'p1_action': p1_action,
@@ -145,23 +140,34 @@ class CombatManager:
         if p2_action in move_actions:
             self._execute_action(self.player2, self.player1, p2_action, self.turn, current_frame)
         
-        # 第二阶段：执行所有非移动行动
-        if p1_action and p1_action not in move_actions:
+        # 第二阶段：执行所有防御类行动（必须在攻击前生效）
+        defend_actions = ['defend', 'counter']
+        
+        if p1_action in defend_actions:
             self._execute_action(self.player1, self.player2, p1_action, self.turn, current_frame)
         
-        if p2_action and p2_action not in move_actions:
+        if p2_action in defend_actions:
             self._execute_action(self.player2, self.player1, p2_action, self.turn, current_frame)
         
-        # 第三步：检查打断
+        # 第三阶段：执行所有攻击和其他行动
+        other_actions = move_actions + defend_actions
+        
+        if p1_action and p1_action not in other_actions:
+            self._execute_action(self.player1, self.player2, p1_action, self.turn, current_frame)
+        
+        if p2_action and p2_action not in other_actions:
+            self._execute_action(self.player2, self.player1, p2_action, self.turn, current_frame)
+        
+        # 检查打断
         self._check_interrupts()
         
-        # 第四步：检查闪避（需要移动前后的位置）
-        self._check_dodge(p1_action, p2_action, p1_pos_before, p2_pos_before)
+        # 检查闪避（传递current_frame）
+        self._check_dodge(p1_action, p2_action, p1_pos_before, p2_pos_before, current_frame)
         
-        # 第五步：检查防御反击
-        self._check_counter()
+        # 检查防御反击（传递current_frame）
+        self._check_counter(current_frame)
         
-        # 第六步：处理控制解除
+        # 处理控制解除
         self._handle_control_release(p1_action, p2_action)
         
         return result
@@ -218,13 +224,13 @@ class CombatManager:
                     self.player2.lose_charge("（被打断）")
                     self.player2.take_damage(CHARGE_INTERRUPTED_DAMAGE)
     
-    def _check_dodge(self, p1_action, p2_action, p1_pos_before, p2_pos_before):
+    def _check_dodge(self, p1_action, p2_action, p1_pos_before, p2_pos_before, current_frame):
         """检查闪避（对手攻击时移动，移动前会被打到但移动后脱离攻击范围）"""
         from config import DODGE_STUN_FRAMES, ATTACK_RANGE, CHARGE_1_RANGE_BONUS, CHARGE_2_RANGE_BONUS
         
         # 检查玩家1是否闪避了玩家2的攻击
         if p2_action == 'attack' and p1_action in ['move_left', 'move_right', 'dash_left', 'dash_right']:
-            # 计算玩家2的攻击距离（使用本帧已使用的蓄力等级）
+            # 计算玩家2的攻击距离
             attack_range = ATTACK_RANGE
             if self.player2.used_charge_level == 1:
                 attack_range += CHARGE_1_RANGE_BONUS
@@ -235,7 +241,7 @@ class CombatManager:
             distance_before = abs(p1_pos_before - p2_pos_before)
             distance_after = abs(self.player1.position - self.player2.position)
             
-            # 判断闪避：移动前会被打到 + 移动后打不到 + 攻击没造成伤害
+            # 判断闪避
             if (distance_before <= attack_range and 
                 distance_after > attack_range and 
                 self.player2.vulnerable_action == 'attack' and 
@@ -245,7 +251,7 @@ class CombatManager:
         
         # 检查玩家2是否闪避了玩家1的攻击
         if p1_action == 'attack' and p2_action in ['move_left', 'move_right', 'dash_left', 'dash_right']:
-            # 计算玩家1的攻击距离（使用本帧已使用的蓄力等级）
+            # 计算玩家1的攻击距离
             attack_range = ATTACK_RANGE
             if self.player1.used_charge_level == 1:
                 attack_range += CHARGE_1_RANGE_BONUS
@@ -264,20 +270,18 @@ class CombatManager:
                 print(f"💨 {self.player2.name} 闪避了{self.player1.name}的攻击！")
                 self.player1.apply_stun(DODGE_STUN_FRAMES, self.turn, current_frame)
     
-    def _check_counter(self):
+    def _check_counter(self, current_frame):
         """检查防御反击"""
         from config import COUNTER_DAMAGE, COUNTER_FAIL_STUN_FRAMES
         
         # 检查玩家1的反击
         if self.player1.countering:
             if self.player2.action_dealt_damage:
-                # 成功反击
                 print(f"⚔️ {self.player1.name} 反击成功！")
                 self.player2.take_damage(COUNTER_DAMAGE)
             else:
-                # 反击失败
                 print(f"❌ {self.player1.name} 反击失败，硬直！")
-                self.player1.apply_stun(COUNTER_FAIL_STUN_FRAMES, self.turn, 1)
+                self.player1.apply_stun(COUNTER_FAIL_STUN_FRAMES, self.turn, current_frame)
         
         # 检查玩家2的反击
         if self.player2.countering:
@@ -286,7 +290,7 @@ class CombatManager:
                 self.player1.take_damage(COUNTER_DAMAGE)
             else:
                 print(f"❌ {self.player2.name} 反击失败，硬直！")
-                self.player2.apply_stun(COUNTER_FAIL_STUN_FRAMES, self.turn, 1)
+                self.player2.apply_stun(COUNTER_FAIL_STUN_FRAMES, self.turn, current_frame)
     
     def _handle_control_release(self, p1_action, p2_action):
         """处理控制解除"""
@@ -295,7 +299,6 @@ class CombatManager:
             if p1_action not in ['control', 'grab', 'throw', 'move_left', 'move_right', 'dash_left', 'dash_right']:
                 print(f"🔓 {self.player1.name}执行了{p1_action}，解除对{self.player2.name}的控制")
                 
-                # 推开对手
                 old_pos = self.player2.position
                 if self.player2.is_left:
                     new_pos = max(1, self.player2.position - 1)
@@ -347,8 +350,6 @@ class CombatManager:
             print(f"结果: 平局")
         elif winner:
             print(f"胜者: {winner}")
-        else:
-            print(f"战斗未结束")
         
         print(f"\n最终状态：")
         self.player1.show_status()
@@ -363,11 +364,5 @@ if __name__ == "__main__":
     bob = Player("Bob", position=4)
     
     combat = CombatManager(alice, bob)
-    
-    # 测试回合
-    combat.execute_turn(
-        ["charge", "attack"],
-        ["defend", "attack"]
-    )
-    
+    combat.execute_turn(["charge", "attack"], ["defend", "attack"])
     combat.show_final_result()
