@@ -1,53 +1,22 @@
 """
 game_ui.py
-可视化界面 - 使用Pygame实现
-只负责显示和交互，所有数据从配置文件导入
+可视化界面 - 使用Pygame实现（完整最终版）
+支持帧帧播放动画 + 独立技能悬停 + 机制说明
 """
 
 import pygame
 import sys
+import io
 from player import Player
 from combat_manager import CombatManager
 
-# ==================== 从config导入所有配置 ====================
-from config import (
-    # 游戏配置
-    MAP_SIZE, PLAYER_MAX_HP,
-    PLAYER1_NAME, PLAYER1_START_POS, PLAYER1_COLOR,
-    PLAYER2_NAME, PLAYER2_START_POS, PLAYER2_COLOR,
-    
-    # UI窗口配置
-    WINDOW_WIDTH, WINDOW_HEIGHT, FPS,
-    
-    # 颜色配置
-    WHITE, BLACK, RED, BLUE, GREEN, GRAY, DARK_GRAY, YELLOW,
-    LIGHT_RED, LIGHT_BLUE, LIGHT_GRAY, ORANGE, PURPLE,
-    
-    # 布局配置
-    GRID_START_X, GRID_START_Y, GRID_WIDTH, CELL_WIDTH, CELL_HEIGHT,
-    PLAYER_RADIUS,
-    
-    # 消息框配置
-    MESSAGE_BOX_X, MESSAGE_BOX_Y, MESSAGE_BOX_WIDTH, MESSAGE_BOX_HEIGHT,
-    
-    # 战斗配置
-    EXECUTE_DELAY_FRAMES, COMBO_THRESHOLD,
-    
-    # UI文本
-    UI_TEXT
-)
-
-# ==================== 从game_data导入游戏数据 ====================
-from game_data import (
-    ACTION_KEY_MAP,           # 按键映射
-    ACTION_DISPLAY_NAMES,     # 招式显示名称
-    KEY_HINTS,                # 按键提示文本
-    CONTROL_HINTS             # 控制提示文本
-)
+# 导入配置
+from config import *
+from game_data import ACTION_KEY_MAP, ACTION_DISPLAY_NAMES, KEY_HINTS, SKILL_DESCRIPTIONS, GAME_MECHANICS
 
 
 class GameUI:
-    """游戏可视化界面 - 只负责显示和交互"""
+    """游戏可视化界面"""
 
     def __init__(self):
         """初始化界面"""
@@ -56,13 +25,13 @@ class GameUI:
         pygame.display.set_caption(UI_TEXT['title'])
         self.clock = pygame.time.Clock()
 
-        # 加载中文字体
-        self.font = self._load_chinese_font(32)
-        self.small_font = self._load_chinese_font(24)
+        # 加载字体
+        self.font = self._load_chinese_font(28)
+        self.small_font = self._load_chinese_font(22)
         self.large_font = self._load_chinese_font(48)
-        self.tiny_font = self._load_chinese_font(18)
+        self.tiny_font = self._load_chinese_font(16)
 
-        # 游戏状态 - 从配置创建玩家
+        # 游戏状态
         self.player1 = Player(PLAYER1_NAME, position=PLAYER1_START_POS)
         self.player2 = Player(PLAYER2_NAME, position=PLAYER2_START_POS)
         self.combat = CombatManager(self.player1, self.player2)
@@ -73,54 +42,50 @@ class GameUI:
         self.p1_locked = False
         self.p2_locked = False
         self.current_player = 1
-        self.current_frame = 1
 
-        # 招式映射 - 从game_data导入
+        # 招式映射
         self.action_map = ACTION_KEY_MAP
         self.action_names = ACTION_DISPLAY_NAMES
+        self.skill_descriptions = SKILL_DESCRIPTIONS
+        self.game_mechanics = GAME_MECHANICS
 
-        # 游戏状态
+        # 游戏状态机
         self.game_state = "input"
         self.battle_messages = []
-        self.execute_delay_timer = 0
+        
+        # 帧播放状态
+        self.current_frame_index = 0
+        self.frame_delay_timer = 0
+        self.turn_delay_timer = 0
+        self.p1_final_actions = []
+        self.p2_final_actions = []
+        
+        # 鼠标悬停状态
+        self.hovered_skill = None
+        self.hovered_mechanic = None
 
     def _load_chinese_font(self, size):
-        """
-        加载中文字体
-        尝试多个常见的系统字体路径
-        """
+        """加载中文字体"""
         import os
-        import sys
-
-        # 字体候选列表（按优先级）
         font_candidates = []
 
-        # Windows字体
         if sys.platform == "win32":
             font_candidates.extend([
-                "C:/Windows/Fonts/msyh.ttc",      # 微软雅黑
-                "C:/Windows/Fonts/simhei.ttf",    # 黑体
-                "C:/Windows/Fonts/simsun.ttc",    # 宋体
-                "C:/Windows/Fonts/simkai.ttf",    # 楷体
+                "C:/Windows/Fonts/msyh.ttc",
+                "C:/Windows/Fonts/simhei.ttf",
+                "C:/Windows/Fonts/simsun.ttc",
             ])
-
-        # macOS字体
         elif sys.platform == "darwin":
             font_candidates.extend([
-                "/System/Library/Fonts/PingFang.ttc",           # 苹方
-                "/Library/Fonts/Arial Unicode.ttf",              # Arial Unicode
-                "/System/Library/Fonts/STHeiti Light.ttc",       # 黑体
+                "/System/Library/Fonts/PingFang.ttc",
+                "/Library/Fonts/Arial Unicode.ttf",
             ])
-
-        # Linux字体
         else:
             font_candidates.extend([
-                "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",    # 文泉驿微米黑
+                "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
                 "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
-                "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
             ])
 
-        # 尝试加载字体
         for font_path in font_candidates:
             if os.path.exists(font_path):
                 try:
@@ -128,8 +93,6 @@ class GameUI:
                 except:
                     continue
 
-        # 如果都失败，使用默认字体（不支持中文）
-        print("Warning: No Chinese font found, using default font")
         return pygame.font.Font(None, size)
 
     def draw_grid(self):
@@ -138,118 +101,248 @@ class GameUI:
             x = GRID_START_X + i * CELL_WIDTH
             y = GRID_START_Y
 
-            # 绘制格子
             rect = pygame.Rect(x, y, CELL_WIDTH, CELL_HEIGHT)
             pygame.draw.rect(self.screen, GRAY, rect, 2)
 
-            # 绘制格子编号
             text = self.small_font.render(str(i + 1), True, DARK_GRAY)
             text_rect = text.get_rect(center=(x + CELL_WIDTH // 2, y + 15))
             self.screen.blit(text, text_rect)
 
+    def draw_hp_bar(self, player, color):
+        """绘制血条在玩家头顶"""
+        x = GRID_START_X + (player.position - 1) * CELL_WIDTH + CELL_WIDTH // 2
+        y = GRID_START_Y + CELL_HEIGHT // 2 + HP_BAR_OFFSET_Y
+
+        bg_rect = pygame.Rect(x - HP_BAR_WIDTH // 2, y, HP_BAR_WIDTH, HP_BAR_HEIGHT)
+        pygame.draw.rect(self.screen, DARK_GRAY, bg_rect)
+
+        hp_ratio = player.hp / player.max_hp
+        hp_width = int(HP_BAR_WIDTH * hp_ratio)
+        hp_rect = pygame.Rect(x - HP_BAR_WIDTH // 2, y, hp_width, HP_BAR_HEIGHT)
+        
+        if hp_ratio > 0.5:
+            hp_color = GREEN
+        elif hp_ratio > 0.25:
+            hp_color = YELLOW
+        else:
+            hp_color = RED
+        
+        pygame.draw.rect(self.screen, hp_color, hp_rect)
+
+        hp_text = f"{player.hp}/{player.max_hp}"
+        text = self.tiny_font.render(hp_text, True, WHITE)
+        text_rect = text.get_rect(center=(x, y + HP_BAR_HEIGHT // 2))
+        self.screen.blit(text, text_rect)
+
+    def draw_combo_count(self, player):
+        """绘制连击数在玩家头顶"""
+        if player.combo_count > 0:
+            x = GRID_START_X + (player.position - 1) * CELL_WIDTH + CELL_WIDTH // 2
+            y = GRID_START_Y + CELL_HEIGHT // 2 + COMBO_DISPLAY_OFFSET_Y
+
+            combo_text = f"连击 {player.combo_count}/{COMBO_THRESHOLD}"
+            text = self.tiny_font.render(combo_text, True, ORANGE)
+            text_rect = text.get_rect(center=(x, y))
+            
+            bg_rect = text_rect.inflate(10, 4)
+            pygame.draw.rect(self.screen, BLACK, bg_rect, border_radius=3)
+            
+            self.screen.blit(text, text_rect)
+
     def draw_player(self, player, color):
-        """绘制玩家（处理重叠情况）"""
+        """绘制玩家"""
         distance = self.combat.get_distance()
         
-        # 如果距离为0（重叠），只显示控制者
         if distance == 0:
             if player.controlled:
-                # 这个玩家被控制，不显示
                 return
         
         x = GRID_START_X + (player.position - 1) * CELL_WIDTH + CELL_WIDTH // 2
         y = GRID_START_Y + CELL_HEIGHT // 2
 
-        # 绘制玩家圆点
         pygame.draw.circle(self.screen, color, (x, y), PLAYER_RADIUS)
+        
+        if player.controlled:
+            pygame.draw.circle(self.screen, YELLOW, (x, y), PLAYER_RADIUS + 5, 3)
+        
+        if player.charge_level > 0:
+            glow_color = YELLOW if player.charge_level == 1 else ORANGE
+            pygame.draw.circle(self.screen, glow_color, (x, y), PLAYER_RADIUS + 8, 2)
 
-        # 绘制玩家名字
         text = self.small_font.render(player.name, True, BLACK)
         text_rect = text.get_rect(center=(x, y))
         self.screen.blit(text, text_rect)
+        
+        self.draw_hp_bar(player, color)
+        self.draw_combo_count(player)
 
-    def draw_status(self):
-        """绘制玩家状态"""
-        y = GRID_START_Y + CELL_HEIGHT + 30
-
-        # 玩家1状态
-        p1_text = f"{self.player1.name}: HP {self.player1.hp}/{self.player1.max_hp}  连击 {self.player1.combo_count}/{COMBO_THRESHOLD}"
-        if self.player1.charge_buff > 0:
-            p1_text += f"  蓄力+{self.player1.charge_buff}"
-        if self.player1.controlled:
-            p1_text += "  [被控制]"
-        if self.player1.stun_frames_remaining > 0:
-            p1_text += f"  [硬直{self.player1.stun_frames_remaining}帧]"
-
-        text = self.font.render(p1_text, True, PLAYER1_COLOR)
-        self.screen.blit(text, (GRID_START_X, y))
-
-        # 玩家2状态
-        p2_text = f"{self.player2.name}: HP {self.player2.hp}/{self.player2.max_hp}  连击 {self.player2.combo_count}/{COMBO_THRESHOLD}"
-        if self.player2.charge_buff > 0:
-            p2_text += f"  蓄力+{self.player2.charge_buff}"
-        if self.player2.controlled:
-            p2_text += "  [被控制]"
-        if self.player2.stun_frames_remaining > 0:
-            p2_text += f"  [硬直{self.player2.stun_frames_remaining}帧]"
-
-        text = self.font.render(p2_text, True, PLAYER2_COLOR)
-        self.screen.blit(text, (GRID_START_X, y + 40))
+    def draw_header(self):
+        """绘制顶部信息"""
+        distance = self.combat.get_distance()
+        
+        header_text = UI_TEXT['turn_info'].format(
+            turn=self.combat.turn,
+            distance=distance
+        )
+        text = self.large_font.render(header_text, True, BLACK)
+        text_rect = text.get_rect(center=(WINDOW_WIDTH // 2, 50))
+        self.screen.blit(text, text_rect)
+        
+        if self.game_state == "frame_executing":
+            frame_text = f"▶ 正在执行第 {self.current_frame_index + 1} 帧"
+            text = self.font.render(frame_text, True, ORANGE)
+            text_rect = text.get_rect(center=(WINDOW_WIDTH // 2, 100))
+            self.screen.blit(text, text_rect)
+            
+            progress_width = 200
+            progress_height = 10
+            progress_x = WINDOW_WIDTH // 2 - progress_width // 2
+            progress_y = 130
+            
+            pygame.draw.rect(self.screen, GRAY, 
+                           (progress_x, progress_y, progress_width, progress_height))
+            
+            frame_progress = self.frame_delay_timer / FRAME_DELAY
+            current_progress = progress_width * frame_progress
+            pygame.draw.rect(self.screen, GREEN,
+                           (progress_x, progress_y, current_progress, progress_height))
+        
+        elif self.game_state == "turn_delay":
+            hint_text = "回合结束，准备下一回合..."
+            text = self.small_font.render(hint_text, True, BLUE)
+            text_rect = text.get_rect(center=(WINDOW_WIDTH // 2, 100))
+            self.screen.blit(text, text_rect)
 
     def draw_key_hints(self):
-        """绘制按键提示 - 数据从配置导入"""
+        """绘制按键提示（每行独立悬停）"""
         x = GRID_START_X
-        y = GRID_START_Y + CELL_HEIGHT + 140
+        y = GRID_START_Y + CELL_HEIGHT + 40
 
-        # 标题
-        text = self.font.render(UI_TEXT['key_hints_title'], True, BLACK)
-        self.screen.blit(text, (x, y))
+        title_text = self.font.render("按键说明", True, BLACK)
+        self.screen.blit(title_text, (x, y))
 
-        y += 50
+        y += 40
+        box_height = len(KEY_HINTS) * 24 + 10
+        pygame.draw.rect(self.screen, LIGHT_GRAY, (x - 10, y - 5, 260, box_height), border_radius=5)
 
-        # 按键说明框（使用配置的文本）
-        box_height = len(KEY_HINTS) * 22 + 10
-        pygame.draw.rect(self.screen, LIGHT_GRAY, (x - 10, y - 5, 280, box_height), border_radius=5)
+        mouse_pos = pygame.mouse.get_pos()
+        self.hovered_skill = None
 
-        for line in KEY_HINTS:
-            text = self.tiny_font.render(line, True, DARK_GRAY)
-            self.screen.blit(text, (x, y))
-            y += 22
+        for i, (line_text, skill_key) in enumerate(KEY_HINTS):
+            line_y = y + i * 24
+            
+            line_rect = pygame.Rect(x - 8, line_y - 2, 256, 22)
+            is_hovered = line_rect.collidepoint(mouse_pos)
+            
+            if is_hovered:
+                pygame.draw.rect(self.screen, YELLOW, line_rect, border_radius=3)
+                self.hovered_skill = skill_key
+            
+            text = self.tiny_font.render(line_text, True, BLACK if is_hovered else DARK_GRAY)
+            self.screen.blit(text, (x, line_y))
 
-        # 提示
-        y += 10
-        hint = UI_TEXT['turn_based_hint']
-        text = self.tiny_font.render(hint, True, ORANGE)
-        self.screen.blit(text, (x, y))
+    def draw_game_mechanics(self):
+        """绘制游戏机制说明（连击和硬直）"""
+        x = GRID_START_X + 280
+        y = GRID_START_Y + CELL_HEIGHT + 40
+
+        title_text = self.font.render("游戏机制", True, BLACK)
+        self.screen.blit(title_text, (x, y))
+
+        y += 40
+        
+        mouse_pos = pygame.mouse.get_pos()
+        self.hovered_mechanic = None
+
+        for i, (mech_key, mech_info) in enumerate(GAME_MECHANICS.items()):
+            mech_y = y + i * 30
+            
+            # 绘制背景框
+            mech_rect = pygame.Rect(x - 8, mech_y - 2, 180, 26)
+            is_hovered = mech_rect.collidepoint(mouse_pos)
+            
+            bg_color = LIGHT_BLUE if i == 0 else LIGHT_RED
+            if is_hovered:
+                bg_color = YELLOW
+                self.hovered_mechanic = mech_key
+            
+            pygame.draw.rect(self.screen, bg_color, mech_rect, border_radius=5)
+            
+            # 绘制文字
+            mech_text = self.small_font.render(mech_info['name'], True, BLACK if is_hovered else DARK_GRAY)
+            self.screen.blit(mech_text, (x, mech_y))
+
+    def draw_skill_tooltip(self):
+        """绘制技能/机制描述悬停窗口"""
+        tooltip_info = None
+        
+        if self.hovered_skill and self.hovered_skill in self.skill_descriptions:
+            tooltip_info = self.skill_descriptions[self.hovered_skill]
+        elif self.hovered_mechanic and self.hovered_mechanic in self.game_mechanics:
+            tooltip_info = self.game_mechanics[self.hovered_mechanic]
+        
+        if tooltip_info:
+            # 窗口位置（在按键说明和机制说明的右侧）
+            tooltip_x = GRID_START_X + 480
+            tooltip_y = GRID_START_Y + CELL_HEIGHT + 80
+            tooltip_width = 360
+            
+            # 计算窗口高度
+            line_height = 18
+            tooltip_height = 40 + len(tooltip_info['desc']) * line_height
+            
+            # 阴影
+            shadow_offset = 3
+            pygame.draw.rect(self.screen, (100, 100, 100), 
+                           (tooltip_x + shadow_offset, tooltip_y + shadow_offset, 
+                            tooltip_width, tooltip_height), 
+                           border_radius=8)
+            
+            # 背景
+            pygame.draw.rect(self.screen, BLACK, 
+                           (tooltip_x, tooltip_y, tooltip_width, tooltip_height), 
+                           border_radius=8)
+            pygame.draw.rect(self.screen, (250, 250, 250), 
+                           (tooltip_x + 2, tooltip_y + 2, tooltip_width - 4, tooltip_height - 4), 
+                           border_radius=6)
+            
+            # 标题
+            title_text = self.small_font.render(tooltip_info['name'], True, BLUE)
+            self.screen.blit(title_text, (tooltip_x + 10, tooltip_y + 8))
+            
+            # 分隔线
+            pygame.draw.line(self.screen, GRAY, 
+                           (tooltip_x + 10, tooltip_y + 33), 
+                           (tooltip_x + tooltip_width - 10, tooltip_y + 33), 1)
+            
+            # 描述
+            desc_y = tooltip_y + 38
+            for line in tooltip_info['desc']:
+                if line:
+                    desc_text = self.tiny_font.render(line, True, BLACK)
+                    self.screen.blit(desc_text, (tooltip_x + 12, desc_y))
+                desc_y += line_height
 
     def _get_frame_display(self, player, frame_index, actions, is_locked):
-        """
-        获取帧的显示内容
-        
-        Args:
-            player: 玩家对象
-            frame_index: 帧索引 (0或1)
-            actions: 行动列表
-            is_locked: 是否已锁定
-        
-        Returns:
-            tuple: (显示文本, 背景颜色)
-        """
+        """获取帧的显示内容（硬直帧可能有爆血）"""
         next_turn = self.combat.turn + 1
         frame_num = frame_index + 1
         
-        # 检查这一帧是否被硬直锁定
-        if player.is_frame_locked(next_turn, frame_num):
-            return "🔒STUN", PURPLE
-        
-        # 已经输入的行动
+        # 检查是否已输入行动
         if frame_index < len(actions):
             if actions[frame_index] is None:
-                # None表示被跳过（因为被锁定）
+                # None表示被跳过（因为被锁定且没输入爆血）
                 return "🔒STUN", PURPLE
+            elif actions[frame_index] == 'burst':
+                # 硬直帧输入了爆血
+                return "Burst💥", ORANGE
             else:
                 action_name = self.action_names.get(actions[frame_index], "____")
-                return action_name, ORANGE if len(actions) == 2 else YELLOW
+                return action_name, ORANGE if len(actions) >= 2 else YELLOW
+        
+        # 未输入 - 检查硬直锁定
+        if player.is_frame_locked(next_turn, frame_num):
+            return "🔒STUN", PURPLE
         
         # 未输入
         if is_locked:
@@ -258,21 +351,19 @@ class GameUI:
             return "____", YELLOW
 
     def draw_input_status(self):
-        """绘制输入状态（显示硬直锁定）- 双盲模式"""
-        x = GRID_START_X + 300
-        y = GRID_START_Y + CELL_HEIGHT + 120
+        """绘制输入状态（移到按键说明下方）"""
+        x = GRID_START_X
+        y = GRID_START_Y + CELL_HEIGHT + 280  # 调整位置避免重叠
 
         # 标题
-        text = self.font.render(UI_TEXT['current_selection'], True, BLACK)
-        self.screen.blit(text, (x, y))
+        title_text = self.font.render(UI_TEXT['current_selection'], True, BLACK)
+        self.screen.blit(title_text, (x, y))
 
-        y += 50
-        
+        y += 45
         next_turn = self.combat.turn + 1
 
-        # 玩家1行动 - 只有当前是玩家1时才显示详细信息
+        # 玩家1行动
         if self.current_player == 1 and not self.p1_locked:
-            # 玩家1正在输入，显示详细信息
             frame1_text, frame1_color = self._get_frame_display(
                 self.player1, 0, self.p1_actions, self.p1_locked
             )
@@ -282,22 +373,19 @@ class GameUI:
             p1_text = f"{PLAYER1_NAME}: [{frame1_text}] [{frame2_text}]"
             bg_color = frame2_color if len(self.p1_actions) >= 1 else frame1_color
         elif self.p1_locked:
-            # 玩家1已锁定，显示已确认但不显示具体内容
             p1_text = f"{PLAYER1_NAME}: [✓✓✓] [✓✓✓]"
             bg_color = LIGHT_RED
         else:
-            # 玩家1还未输入（当前是玩家2的回合）
             p1_text = f"{PLAYER1_NAME}: [***] [***]"
             bg_color = LIGHT_RED
 
-        pygame.draw.rect(self.screen, bg_color, (x - 10, y - 5, 300, 35), border_radius=5)
+        pygame.draw.rect(self.screen, bg_color, (x - 10, y - 5, 350, 35), border_radius=5)
         text = self.small_font.render(p1_text, True, BLACK)
         self.screen.blit(text, (x, y))
 
-        # 玩家2行动 - 只有当前是玩家2时才显示详细信息
-        y += 50
+        # 玩家2行动
+        y += 45
         if self.current_player == 2 and not self.p2_locked:
-            # 玩家2正在输入，显示详细信息
             frame1_text, frame1_color = self._get_frame_display(
                 self.player2, 0, self.p2_actions, self.p2_locked
             )
@@ -307,72 +395,72 @@ class GameUI:
             p2_text = f"{PLAYER2_NAME}:   [{frame1_text}] [{frame2_text}]"
             bg_color = frame2_color if len(self.p2_actions) >= 1 else frame1_color
         elif self.p2_locked:
-            # 玩家2已锁定，显示已确认但不显示具体内容
             p2_text = f"{PLAYER2_NAME}:   [✓✓✓] [✓✓✓]"
             bg_color = LIGHT_BLUE
         else:
-            # 玩家2还未输入（当前是玩家1的回合）
             p2_text = f"{PLAYER2_NAME}:   [***] [***]"
             bg_color = LIGHT_BLUE
 
-        pygame.draw.rect(self.screen, bg_color, (x - 10, y - 5, 300, 35), border_radius=5)
+        pygame.draw.rect(self.screen, bg_color, (x - 10, y - 5, 350, 35), border_radius=5)
         text = self.small_font.render(p2_text, True, BLACK)
         self.screen.blit(text, (x, y))
 
-        # 提示信息 - 使用配置的文本
-        y += 60
-        if self.game_state == "executing":
-            remaining = self.execute_delay_timer / 60.0
-            hint = UI_TEXT['executing'].format(time=remaining)
-            text = self.small_font.render(hint, True, ORANGE)
-            self.screen.blit(text, (x, y))
-        elif not self.p1_locked and not self.p2_locked:
+        # 提示信息
+        y += 45
+        if not self.p1_locked and not self.p2_locked:
             if self.current_player == 1:
                 next_turn = self.combat.turn + 1
                 
-                # 检查是否被控制
+                # 检查下一个需要输入的帧
+                next_input_frame = None
+                for frame_idx in range(2):
+                    frame_num = frame_idx + 1
+                    is_locked = self.player1.is_frame_locked(next_turn, frame_num)
+                    already_input = frame_idx < len(self.p1_actions)
+                    
+                    if not already_input:
+                        if not is_locked or True:  # 硬直帧也算可输入（可以输入爆血）
+                            next_input_frame = frame_num
+                            break
+                
                 if self.player1.controlled:
                     hint = UI_TEXT['controlled_limit']
                     color = RED
+                elif next_input_frame and self.player1.is_frame_locked(next_turn, next_input_frame):
+                    hint = f"😵 第{next_input_frame}帧硬直，可用O(爆血)"
+                    color = PURPLE
+                elif next_input_frame is None:
+                    hint = UI_TEXT['selection_complete']
+                    color = ORANGE
                 else:
-                    # 找到下一个需要输入的帧
-                    next_input_frame = None
-                    for frame_idx in range(2):
-                        frame_num = frame_idx + 1
-                        if not self.player1.is_frame_locked(next_turn, frame_num) and frame_idx >= len(self.p1_actions):
-                            next_input_frame = frame_num
-                            break
-                    
-                    if next_input_frame is None:
-                        # 所有帧都已输入或锁定
-                        hint = UI_TEXT['selection_complete']
-                        color = ORANGE
-                    else:
-                        hint = UI_TEXT['alice_turn'].format(frame=next_input_frame)
-                        color = GREEN
+                    hint = UI_TEXT['alice_turn'].format(frame=next_input_frame)
+                    color = GREEN
             else:
                 next_turn = self.combat.turn + 1
                 
-                # 检查是否被控制
+                next_input_frame = None
+                for frame_idx in range(2):
+                    frame_num = frame_idx + 1
+                    is_locked = self.player2.is_frame_locked(next_turn, frame_num)
+                    already_input = frame_idx < len(self.p2_actions)
+                    
+                    if not already_input:
+                        if not is_locked or True:
+                            next_input_frame = frame_num
+                            break
+                
                 if self.player2.controlled:
                     hint = UI_TEXT['controlled_limit']
                     color = RED
+                elif next_input_frame and self.player2.is_frame_locked(next_turn, next_input_frame):
+                    hint = f"😵 第{next_input_frame}帧硬直，可用O(爆血)"
+                    color = PURPLE
+                elif next_input_frame is None:
+                    hint = UI_TEXT['selection_complete']
+                    color = ORANGE
                 else:
-                    # 找到下一个需要输入的帧
-                    next_input_frame = None
-                    for frame_idx in range(2):
-                        frame_num = frame_idx + 1
-                        if not self.player2.is_frame_locked(next_turn, frame_num) and frame_idx >= len(self.p2_actions):
-                            next_input_frame = frame_num
-                            break
-                    
-                    if next_input_frame is None:
-                        # 所有帧都已输入或锁定
-                        hint = UI_TEXT['selection_complete']
-                        color = ORANGE
-                    else:
-                        hint = UI_TEXT['bob_turn'].format(frame=next_input_frame)
-                        color = GREEN
+                    hint = UI_TEXT['bob_turn'].format(frame=next_input_frame)
+                    color = GREEN
             text = self.small_font.render(hint, True, color)
             self.screen.blit(text, (x, y))
         elif self.p1_locked and not self.p2_locked:
@@ -387,22 +475,14 @@ class GameUI:
             hint = UI_TEXT['both_confirmed']
             text = self.small_font.render(hint, True, ORANGE)
             self.screen.blit(text, (x, y))
-
-    def draw_header(self):
-        """绘制顶部信息"""
-        distance = self.combat.get_distance()
-        header_text = UI_TEXT['turn_info'].format(
-            turn=self.combat.turn,
-            distance=distance
-        )
-
-        text = self.large_font.render(header_text, True, BLACK)
-        text_rect = text.get_rect(center=(WINDOW_WIDTH // 2, 50))
-        self.screen.blit(text, text_rect)
+        
+        y += 30
+        turn_hint = "按 SPACE 确认 | Backspace 撤销"
+        text = self.tiny_font.render(turn_hint, True, ORANGE)
+        self.screen.blit(text, (x, y))
 
     def draw_battle_messages(self):
-        """显示战斗消息（右侧消息框）"""
-        # 绘制消息框背景
+        """显示战斗消息"""
         pygame.draw.rect(self.screen, LIGHT_GRAY,
                         (MESSAGE_BOX_X, MESSAGE_BOX_Y, MESSAGE_BOX_WIDTH, MESSAGE_BOX_HEIGHT),
                         border_radius=10)
@@ -410,35 +490,30 @@ class GameUI:
                         (MESSAGE_BOX_X, MESSAGE_BOX_Y, MESSAGE_BOX_WIDTH, MESSAGE_BOX_HEIGHT),
                         2, border_radius=10)
 
-        # 标题
         title = self.font.render(UI_TEXT['battle_log_title'], True, BLACK)
         self.screen.blit(title, (MESSAGE_BOX_X + 10, MESSAGE_BOX_Y + 10))
 
-        # 绘制分隔线
         pygame.draw.line(self.screen, DARK_GRAY,
-                        (MESSAGE_BOX_X + 10, MESSAGE_BOX_Y + 50),
-                        (MESSAGE_BOX_X + MESSAGE_BOX_WIDTH - 10, MESSAGE_BOX_Y + 50), 2)
+                        (MESSAGE_BOX_X + 10, MESSAGE_BOX_Y + 45),
+                        (MESSAGE_BOX_X + MESSAGE_BOX_WIDTH - 10, MESSAGE_BOX_Y + 45), 2)
 
-        # 显示消息（最新的在下面）
         if self.battle_messages:
-            y = MESSAGE_BOX_Y + 60
-            visible_messages = self.battle_messages[-20:]
+            y = MESSAGE_BOX_Y + 55
+            visible_messages = self.battle_messages[-28:]
 
             for message in visible_messages:
-                # 清理消息
                 clean_msg = message.replace('=', '').strip()
                 if not clean_msg or clean_msg.startswith('---'):
                     continue
 
-                # 根据内容选择颜色
                 if '💔' in message or '受到' in message:
                     color = RED
-                elif '✨' in message or '成功' in message:
-                    color = GREEN
-                elif '⚔️' in message or '🦵' in message:
-                    color = BLUE
-                elif '🔒' in message or '硬直' in message:
+                elif '✨' in message or '蓄力' in message:
                     color = PURPLE
+                elif '⚔️' in message or '攻击' in message:
+                    color = BLUE
+                elif '🔒' in message or '硬直' in message or '控制' in message:
+                    color = ORANGE
                 elif '❌' in message:
                     color = DARK_GRAY
                 else:
@@ -446,34 +521,24 @@ class GameUI:
 
                 text = self.tiny_font.render(clean_msg, True, color)
 
-                # 如果文字太长，截断
                 if text.get_width() > MESSAGE_BOX_WIDTH - 20:
                     while text.get_width() > MESSAGE_BOX_WIDTH - 20 and len(clean_msg) > 0:
                         clean_msg = clean_msg[:-1]
                         text = self.tiny_font.render(clean_msg + "...", True, color)
 
                 self.screen.blit(text, (MESSAGE_BOX_X + 10, y))
-                y += 22
+                y += 19
 
                 if y > MESSAGE_BOX_Y + MESSAGE_BOX_HEIGHT - 10:
                     break
 
-        # 提示
-        if self.game_state == "executing":
-            remaining_seconds = self.execute_delay_timer / 60.0
-            hint = f"战斗中... ({remaining_seconds:.1f}s)"
-            hint_text = self.tiny_font.render(hint, True, ORANGE)
-            self.screen.blit(hint_text, (MESSAGE_BOX_X + 10, MESSAGE_BOX_Y + MESSAGE_BOX_HEIGHT - 25))
-
     def draw_game_over(self):
         """绘制游戏结束画面"""
-        # 半透明遮罩
         overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT))
         overlay.set_alpha(200)
         overlay.fill(BLACK)
         self.screen.blit(overlay, (0, 0))
 
-        # 胜者文字
         winner = self.combat.get_winner()
         if winner == "平局":
             text = UI_TEXT['game_over_draw']
@@ -484,7 +549,6 @@ class GameUI:
         text_rect = winner_text.get_rect(center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2 - 50))
         self.screen.blit(winner_text, text_rect)
 
-        # 提示重新开始
         hint = UI_TEXT['restart_hint']
         hint_text = self.font.render(hint, True, WHITE)
         hint_rect = hint_text.get_rect(center=(WINDOW_WIDTH // 2, WINDOW_HEIGHT // 2 + 50))
@@ -495,30 +559,25 @@ class GameUI:
         if self.game_state != "input":
             return
 
-        # Backspace撤销
         if event.key == pygame.K_BACKSPACE:
             if self.current_player == 1 and not self.p1_locked:
                 if len(self.p1_actions) > 0:
                     removed_action = self.p1_actions.pop()
-                    self.current_frame = len(self.p1_actions) + 1
-                    print(UI_TEXT['alice_undo'].format(action=self.action_names[removed_action]))
+                    print(UI_TEXT['alice_undo'].format(action=self.action_names.get(removed_action, "???")))
                 else:
                     print(UI_TEXT['no_undo'].format(player=PLAYER1_NAME))
             elif self.current_player == 2 and not self.p2_locked:
                 if len(self.p2_actions) > 0:
                     removed_action = self.p2_actions.pop()
-                    self.current_frame = len(self.p2_actions) + 1
-                    print(UI_TEXT['bob_undo'].format(action=self.action_names[removed_action]))
+                    print(UI_TEXT['bob_undo'].format(action=self.action_names.get(removed_action, "???")))
                 else:
                     print(UI_TEXT['no_undo'].format(player=PLAYER2_NAME))
             return
 
-        # 空格键确认锁定
         if event.key == pygame.K_SPACE:
             next_turn = self.combat.turn + 1
             
             if self.current_player == 1 and not self.p1_locked:
-                # 检查是否所有需要的帧都已输入或锁定
                 frames_needed = 2
                 frames_ready = 0
                 for i in range(2):
@@ -530,11 +589,9 @@ class GameUI:
                     self.current_player = 2
                     print(f"✓ {PLAYER1_NAME}已锁定选择")
                 else:
-                    needed = frames_needed - frames_ready
-                    print(UI_TEXT['alice_needs_more'].format(count=needed))
+                    print(UI_TEXT['alice_needs_more'].format(count=frames_needed - frames_ready))
                     
             elif self.current_player == 2 and not self.p2_locked:
-                # 检查是否所有需要的帧都已输入或锁定
                 frames_needed = 2
                 frames_ready = 0
                 for i in range(2):
@@ -544,220 +601,250 @@ class GameUI:
                 if frames_ready == frames_needed:
                     self.p2_locked = True
                     print(f"✓ {PLAYER2_NAME}已锁定选择")
-                    # 双方都锁定，执行回合
                     if self.p1_locked and self.p2_locked:
-                        self.execute_turn()
+                        self.start_turn_execution()
                 else:
-                    needed = frames_needed - frames_ready
-                    print(UI_TEXT['bob_needs_more'].format(count=needed))
+                    print(UI_TEXT['bob_needs_more'].format(count=frames_needed - frames_ready))
             return
 
-        # 玩家1输入（数字键1-9）
+        key_char = pygame.key.name(event.key)
+        
         if self.current_player == 1 and not self.p1_locked:
-            key_map = {
-                pygame.K_1: '1', pygame.K_2: '2', pygame.K_3: '3',
-                pygame.K_4: '4', pygame.K_5: '5', pygame.K_6: '6',
-                pygame.K_7: '7', pygame.K_8: '8', pygame.K_9: '9'
-            }
-
-            if event.key in key_map:
-                next_turn = self.combat.turn + 1
-                
-                # 检查还需要输入哪些帧
-                frames_to_input = []
-                for frame_idx in range(2):
-                    frame_num = frame_idx + 1
-                    # 如果这一帧没有被锁定，且还没有输入，则需要输入
-                    if not self.player1.is_frame_locked(next_turn, frame_num) and frame_idx >= len(self.p1_actions):
-                        frames_to_input.append(frame_num)
-                
-                if len(frames_to_input) > 0:
-                    # 输入到第一个需要输入的帧
-                    target_frame = frames_to_input[0]
-                    
-                    # 如果第1帧被锁定，但我们要输入第2帧，需要先填充第1帧为None
-                    while len(self.p1_actions) < target_frame - 1:
-                        self.p1_actions.append(None)
-                    
-                    key = key_map[event.key]
-                    action = self.action_map[key]
-                    
-                    # 检查被控制时的行动限制
-                    if self.player1.controlled and action not in ['defend', 'burst']:
-                        print(f"⛓️ {PLAYER1_NAME}被控制，只能使用防御或爆血！")
-                        return
-                    
-                    self.p1_actions.append(action)
-                    self.current_frame = len(self.p1_actions) + 1
-                    print(f"{PLAYER1_NAME}选择第{target_frame}帧: {self.action_names[action]}")
-                else:
-                    print(UI_TEXT['already_selected'].format(player=PLAYER1_NAME))
-
-        # 玩家2输入（数字键1-9）
+            self._handle_player_input(self.player1, self.p1_actions, key_char, PLAYER1_NAME)
         elif self.current_player == 2 and not self.p2_locked:
-            letter_map = {
-                pygame.K_1: '1', pygame.K_2: '2', pygame.K_3: '3',
-                pygame.K_4: '4', pygame.K_5: '5', pygame.K_6: '6',
-                pygame.K_7: '7', pygame.K_8: '8', pygame.K_9: '9'
-            }
+            self._handle_player_input(self.player2, self.p2_actions, key_char, PLAYER2_NAME)
 
-            if event.key in letter_map:
-                next_turn = self.combat.turn + 1
-                
-                # 检查还需要输入哪些帧
-                frames_to_input = []
-                for frame_idx in range(2):
-                    frame_num = frame_idx + 1
-                    # 如果这一帧没有被锁定，且还没有输入，则需要输入
-                    if not self.player2.is_frame_locked(next_turn, frame_num) and frame_idx >= len(self.p2_actions):
-                        frames_to_input.append(frame_num)
-                
-                if len(frames_to_input) > 0:
-                    # 输入到第一个需要输入的帧
-                    target_frame = frames_to_input[0]
-                    
-                    # 如果第1帧被锁定，但我们要输入第2帧，需要先填充第1帧为None
-                    while len(self.p2_actions) < target_frame - 1:
-                        self.p2_actions.append(None)
-                    
-                    key = letter_map[event.key]
-                    action = self.action_map[key]
-                    
-                    # 检查被控制时的行动限制
-                    if self.player2.controlled and action not in ['defend', 'burst']:
-                        print(f"⛓️ {PLAYER2_NAME}被控制，只能使用防御或爆血！")
-                        return
-                    
-                    self.p2_actions.append(action)
-                    self.current_frame = len(self.p2_actions) + 1
-                    print(f"{PLAYER2_NAME}选择第{target_frame}帧: {self.action_names[action]}")
-                else:
-                    print(UI_TEXT['already_selected'].format(player=PLAYER2_NAME))
+    def _handle_player_input(self, player, actions, key_char, player_name):
+        """处理玩家输入（允许硬直时输入爆血）"""
+        if key_char not in self.action_map:
+            return
+        
+        next_turn = self.combat.turn + 1
+        action = self.action_map[key_char]
+        
+        # 找到需要输入的帧
+        frames_to_input = []
+        for frame_idx in range(2):
+            frame_num = frame_idx + 1
+            is_locked = player.is_frame_locked(next_turn, frame_num)
+            already_input = frame_idx < len(actions)
+            
+            # 如果帧被硬直锁定，但输入的是爆血，允许输入
+            if is_locked and action == 'burst' and not already_input:
+                frames_to_input.append(frame_num)
+            # 如果帧没有被锁定，且还没输入，允许输入
+            elif not is_locked and not already_input:
+                frames_to_input.append(frame_num)
+        
+        if len(frames_to_input) > 0:
+            target_frame = frames_to_input[0]
+            
+            # 填充被锁定的帧
+            while len(actions) < target_frame - 1:
+                actions.append(None)
+            
+            # 检查被控制时的限制
+            if player.controlled and action not in ['defend', 'burst']:
+                print(f"⛓️ {player_name}被控制，只能使用防御(S)或爆血(O)！")
+                return
+            
+            # 检查硬直时的限制（只能爆血）
+            if player.is_frame_locked(next_turn, target_frame) and action != 'burst':
+                print(f"😵 {player_name}第{target_frame}帧硬直中，只能使用爆血(O)！")
+                return
+            
+            actions.append(action)
+            print(f"{player_name}选择第{target_frame}帧: {self.action_names[action]}")
+        else:
+            print(UI_TEXT['already_selected'].format(player=player_name))
 
-    def execute_turn(self):
-        """执行回合"""
-        import io
-        import sys
-
-        self.game_state = "executing"
+    def start_turn_execution(self):
+        """开始执行回合"""
+        self.game_state = "frame_executing"
+        self.current_frame_index = 0
+        self.frame_delay_timer = 0
+        
+        next_turn = self.combat.turn + 1
+        
+        p1_final_actions = []
+        for frame_idx in range(2):
+            frame_num = frame_idx + 1
+            if self.player1.is_frame_locked(next_turn, frame_num):
+                p1_final_actions.append(None)
+            elif frame_idx < len(self.p1_actions):
+                p1_final_actions.append(self.p1_actions[frame_idx])
+            else:
+                p1_final_actions.append(None)
+        
+        p2_final_actions = []
+        for frame_idx in range(2):
+            frame_num = frame_idx + 1
+            if self.player2.is_frame_locked(next_turn, frame_num):
+                p2_final_actions.append(None)
+            elif frame_idx < len(self.p2_actions):
+                p2_final_actions.append(self.p2_actions[frame_idx])
+            else:
+                p2_final_actions.append(None)
+        
+        self.p1_final_actions = p1_final_actions
+        self.p2_final_actions = p2_final_actions
         self.battle_messages = []
 
-        # 捕获打印输出
+    def execute_current_frame(self):
+        """执行当前帧"""
+        frame_idx = self.current_frame_index
+        current_frame = frame_idx + 1
+        
+        if frame_idx == 0:
+            self.combat.turn += 1
+            self.combat.player1.clear_expired_locks(self.combat.turn)
+            self.combat.player2.clear_expired_locks(self.combat.turn)
+        
         old_stdout = sys.stdout
         sys.stdout = captured_output = io.StringIO()
-
+        
         try:
-            # 为被硬直锁定的帧填充None
-            next_turn = self.combat.turn + 1
+            if frame_idx == 0:
+                print(f"\n{'='*60}")
+                print(f"回合 {self.combat.turn} | 距离: {self.combat.get_distance()}格")
+                self.player1.show_status()
+                self.player2.show_status()
+                print('='*60)
             
-            # 准备玩家1的行动列表
-            p1_final_actions = []
-            for frame_idx in range(2):
-                frame_num = frame_idx + 1
-                if self.player1.is_frame_locked(next_turn, frame_num):
-                    p1_final_actions.append(None)  # 硬直锁定的帧
-                elif frame_idx < len(self.p1_actions):
-                    p1_final_actions.append(self.p1_actions[frame_idx])
+            print(f"\n--- 第 {current_frame} 帧 ---")
+            
+            self.player1.reset_frame_status()
+            self.player2.reset_frame_status()
+            
+            p1_action = self.p1_final_actions[frame_idx] if frame_idx < len(self.p1_final_actions) else None
+            p2_action = self.p2_final_actions[frame_idx] if frame_idx < len(self.p2_final_actions) else None
+            
+            # 检查硬直锁定（爆血除外）
+            if self.player1.is_frame_locked(self.combat.turn, current_frame):
+                if p1_action != 'burst':
+                    print(f"🔒 {self.player1.name} 第{current_frame}帧被硬直锁定！")
+                    p1_action = None
                 else:
-                    p1_final_actions.append(None)
+                    print(f"💥 {self.player1.name} 硬直中使用爆血！")
             
-            # 准备玩家2的行动列表
-            p2_final_actions = []
-            for frame_idx in range(2):
-                frame_num = frame_idx + 1
-                if self.player2.is_frame_locked(next_turn, frame_num):
-                    p2_final_actions.append(None)  # 硬直锁定的帧
-                elif frame_idx < len(self.p2_actions):
-                    p2_final_actions.append(self.p2_actions[frame_idx])
+            if self.player2.is_frame_locked(self.combat.turn, current_frame):
+                if p2_action != 'burst':
+                    print(f"🔒 {self.player2.name} 第{current_frame}帧被硬直锁定！")
+                    p2_action = None
                 else:
-                    p2_final_actions.append(None)
+                    print(f"💥 {self.player2.name} 硬直中使用爆血！")
             
-            # 执行战斗
-            continue_battle = self.combat.execute_turn(p1_final_actions, p2_final_actions)
-
-            # 获取输出
+            if self.player1.actions_cancelled and p1_action:
+                print(f"⛔ {self.player1.name} 行动已被取消！")
+                p1_action = None
+            
+            if self.player2.actions_cancelled and p2_action:
+                print(f"⛔ {self.player2.name} 行动已被取消！")
+                p2_action = None
+            
+            if self.player1.controlled and p1_action:
+                if p1_action not in ['defend', 'burst']:
+                    print(f"⛓️ {self.player1.name} 被控制，只能使用防御或爆血！")
+                    p1_action = None
+            
+            if self.player2.controlled and p2_action:
+                if p2_action not in ['defend', 'burst']:
+                    print(f"⛓️ {self.player2.name} 被控制，只能使用防御或爆血！")
+                    p2_action = None
+            
+            self.combat._execute_frame(p1_action, p2_action, current_frame)
+            
+            if current_frame == 2:
+                self.player1.update_turn_status()
+                self.player2.update_turn_status()
+            
             output = captured_output.getvalue()
-            self.battle_messages = [line for line in output.split('\n') if line.strip()]
-
+            frame_messages = [line for line in output.split('\n') if line.strip()]
+            
+            if frame_idx == 0:
+                self.battle_messages = frame_messages
+            else:
+                self.battle_messages.extend(frame_messages)
+            
         finally:
             sys.stdout = old_stdout
 
-        # 设置延迟计时器（使用配置的值）
-        self.execute_delay_timer = EXECUTE_DELAY_FRAMES
+    def update(self):
+        """更新游戏状态"""
+        if self.game_state == "frame_executing":
+            if self.frame_delay_timer == 0:
+                self.execute_current_frame()
+            
+            self.frame_delay_timer += 1
+            
+            if self.frame_delay_timer >= FRAME_DELAY:
+                self.frame_delay_timer = 0
+                self.current_frame_index += 1
+                
+                if self.current_frame_index >= 2:
+                    if not self.player1.is_alive() or not self.player2.is_alive():
+                        self.game_state = "game_over"
+                    else:
+                        self.game_state = "turn_delay"
+                        self.turn_delay_timer = 0
+        
+        elif self.game_state == "turn_delay":
+            self.turn_delay_timer += 1
+            
+            if self.turn_delay_timer >= EXECUTE_DELAY_FRAMES:
+                self.reset_for_next_turn()
 
-        # 检查游戏是否结束
-        if not continue_battle:
-            self.game_state = "game_over"
-
-    def reset_game(self):
-        """重置游戏 - 使用配置的值"""
-        self.player1 = Player(PLAYER1_NAME, position=PLAYER1_START_POS)
-        self.player2 = Player(PLAYER2_NAME, position=PLAYER2_START_POS)
-        self.combat = CombatManager(self.player1, self.player2)
+    def reset_for_next_turn(self):
+        """重置为下一回合"""
         self.p1_actions = []
         self.p2_actions = []
         self.p1_locked = False
         self.p2_locked = False
         self.current_player = 1
-        self.current_frame = 1
         self.game_state = "input"
+
+    def reset_game(self):
+        """重置游戏"""
+        self.player1 = Player(PLAYER1_NAME, position=PLAYER1_START_POS)
+        self.player2 = Player(PLAYER2_NAME, position=PLAYER2_START_POS)
+        self.combat = CombatManager(self.player1, self.player2)
+        self.reset_for_next_turn()
         self.battle_messages = []
-        self.execute_delay_timer = 0
 
     def run(self):
         """主循环"""
         running = True
 
         while running:
-            # 事件处理
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
 
                 elif event.type == pygame.KEYDOWN:
-                    # ESC退出
                     if event.key == pygame.K_ESCAPE:
                         running = False
 
-                    # 游戏结束时按R重新开始
                     elif event.key == pygame.K_r and self.game_state == "game_over":
                         self.reset_game()
 
-                    # 输入状态处理按键
                     elif self.game_state == "input":
                         self.handle_input(event)
 
-            # 更新执行延迟计时器（非阻塞）
-            if self.game_state == "executing" and self.execute_delay_timer > 0:
-                self.execute_delay_timer -= 1
+            self.update()
 
-                # 计时器归零，重置输入状态
-                if self.execute_delay_timer <= 0:
-                    self.p1_actions = []
-                    self.p2_actions = []
-                    self.p1_locked = False
-                    self.p2_locked = False
-                    self.current_player = 1
-                    self.current_frame = 1
-
-                    # 如果不是game_over，返回input状态
-                    if self.game_state != "game_over":
-                        self.game_state = "input"
-
-            # 绘制
             self.screen.fill(WHITE)
-
-            # 绘制各个元素
+            
             self.draw_header()
             self.draw_grid()
-            self.draw_player(self.player1, PLAYER1_COLOR)  # 使用配置的颜色
-            self.draw_player(self.player2, PLAYER2_COLOR)  # 使用配置的颜色
-            self.draw_status()
+            self.draw_player(self.player1, PLAYER1_COLOR)
+            self.draw_player(self.player2, PLAYER2_COLOR)
             self.draw_battle_messages()
 
-            if self.game_state == "input" or self.game_state == "executing":
+            if self.game_state == "input":
                 self.draw_key_hints()
+                self.draw_game_mechanics()
                 self.draw_input_status()
+                self.draw_skill_tooltip()
 
             if self.game_state == "game_over":
                 self.draw_game_over()
