@@ -26,7 +26,10 @@ class Player:
         self.controlled = False      # 是否被控制
         self.defending = False       # 是否在防御
         self.combo_count = 0         # 连击计数
-        self.stun_frames = 0         # 硬直帧数
+        
+        # 新硬直机制
+        self.stun_frames_remaining = 0  # 剩余硬直帧数
+        self.locked_frames = []          # 被锁定的帧列表 [(回合号, 帧号), ...]
         
         # 蓄力相关
         self.charge_buff = 0         # 蓄力buff（0/1/3）
@@ -34,6 +37,58 @@ class Player:
         
         # 快速移动相关
         self.dash_buff = False       # 快速移动buff
+    
+    def apply_stun(self, frames, current_turn, current_frame):
+        """
+        应用硬直效果
+        
+        Args:
+            frames: 硬直帧数
+            current_turn: 当前回合号
+            current_frame: 当前帧号 (1 or 2)
+        """
+        self.stun_frames_remaining = frames
+        
+        # 计算被锁定的帧
+        locked = []
+        turn = current_turn
+        frame = current_frame
+        
+        for _ in range(frames):
+            # 移动到下一帧
+            frame += 1
+            if frame > 2:
+                frame = 1
+                turn += 1
+            locked.append((turn, frame))
+        
+        self.locked_frames.extend(locked)
+        
+        print(f"😵 {self.name} 受到 {frames} 帧硬直！")
+        for t, f in locked:
+            print(f"   🔒 回合{t}第{f}帧被锁定")
+    
+    def is_frame_locked(self, turn, frame):
+        """
+        检查指定帧是否被锁定
+        
+        Args:
+            turn: 回合号
+            frame: 帧号 (1 or 2)
+        
+        Returns:
+            bool: 是否被锁定
+        """
+        return (turn, frame) in self.locked_frames
+    
+    def clear_expired_locks(self, current_turn):
+        """
+        清除已过期的锁定
+        
+        Args:
+            current_turn: 当前回合号
+        """
+        self.locked_frames = [(t, f) for t, f in self.locked_frames if t >= current_turn]
     
     def take_damage(self, damage):
         """
@@ -83,8 +138,8 @@ class Player:
             states.append("被控制")
         if self.defending:
             states.append("防御中")
-        if self.stun_frames > 0:
-            states.append(f"硬直{self.stun_frames}帧")
+        if self.stun_frames_remaining > 0:
+            states.append(f"硬直{self.stun_frames_remaining}帧")
         if self.charge_buff > 0:
             states.append(f"蓄力+{self.charge_buff}")
         if self.dash_buff:
@@ -103,10 +158,6 @@ class Player:
     
     def update_turn_status(self):
         """更新回合状态（每回合结束时调用）"""
-        # 减少硬直
-        if self.stun_frames > 0:
-            self.stun_frames -= 1
-        
         # 减少蓄力取消风险窗口
         if self.charge_cancel_risk > 0:
             self.charge_cancel_risk -= 1
@@ -121,6 +172,13 @@ if __name__ == "__main__":
     
     player = Player("Alice", position=2)
     player.show_status()
+    
+    print("\n测试硬直机制：")
+    player.apply_stun(3, current_turn=1, current_frame=1)
+    
+    print(f"\n回合1第2帧锁定? {player.is_frame_locked(1, 2)}")
+    print(f"回合2第1帧锁定? {player.is_frame_locked(2, 1)}")
+    print(f"回合3第1帧锁定? {player.is_frame_locked(3, 1)}")
     
     print("\n受到伤害：")
     player.take_damage(5)

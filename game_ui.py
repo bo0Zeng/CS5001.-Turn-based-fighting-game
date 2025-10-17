@@ -21,7 +21,7 @@ from config import (
     
     # 颜色配置
     WHITE, BLACK, RED, BLUE, GREEN, GRAY, DARK_GRAY, YELLOW,
-    LIGHT_RED, LIGHT_BLUE, LIGHT_GRAY, ORANGE,
+    LIGHT_RED, LIGHT_BLUE, LIGHT_GRAY, ORANGE, PURPLE,
     
     # 布局配置
     GRID_START_X, GRID_START_Y, GRID_WIDTH, CELL_WIDTH, CELL_HEIGHT,
@@ -170,6 +170,8 @@ class GameUI:
             p1_text += f"  蓄力+{self.player1.charge_buff}"
         if self.player1.controlled:
             p1_text += "  [被控制]"
+        if self.player1.stun_frames_remaining > 0:
+            p1_text += f"  [硬直{self.player1.stun_frames_remaining}帧]"
 
         text = self.font.render(p1_text, True, PLAYER1_COLOR)
         self.screen.blit(text, (GRID_START_X, y))
@@ -180,6 +182,8 @@ class GameUI:
             p2_text += f"  蓄力+{self.player2.charge_buff}"
         if self.player2.controlled:
             p2_text += "  [被控制]"
+        if self.player2.stun_frames_remaining > 0:
+            p2_text += f"  [硬直{self.player2.stun_frames_remaining}帧]"
 
         text = self.font.render(p2_text, True, PLAYER2_COLOR)
         self.screen.blit(text, (GRID_START_X, y + 40))
@@ -210,8 +214,43 @@ class GameUI:
         text = self.tiny_font.render(hint, True, ORANGE)
         self.screen.blit(text, (x, y))
 
+    def _get_frame_display(self, player, frame_index, actions, is_locked):
+        """
+        获取帧的显示内容
+        
+        Args:
+            player: 玩家对象
+            frame_index: 帧索引 (0或1)
+            actions: 行动列表
+            is_locked: 是否已锁定
+        
+        Returns:
+            tuple: (显示文本, 背景颜色)
+        """
+        next_turn = self.combat.turn + 1
+        frame_num = frame_index + 1
+        
+        # 检查这一帧是否被硬直锁定
+        if player.is_frame_locked(next_turn, frame_num):
+            return "🔒STUN", PURPLE
+        
+        # 已经输入的行动
+        if frame_index < len(actions):
+            if actions[frame_index] is None:
+                # None表示被跳过（因为被锁定）
+                return "🔒STUN", PURPLE
+            else:
+                action_name = self.action_names.get(actions[frame_index], "____")
+                return action_name, ORANGE if len(actions) == 2 else YELLOW
+        
+        # 未输入
+        if is_locked:
+            return "✓✓✓", LIGHT_GRAY
+        else:
+            return "____", YELLOW
+
     def draw_input_status(self):
-        """绘制输入状态（只显示当前玩家的选择）"""
+        """绘制输入状态（显示硬直锁定）"""
         x = GRID_START_X + 300
         y = GRID_START_Y + CELL_HEIGHT + 120
 
@@ -220,39 +259,53 @@ class GameUI:
         self.screen.blit(text, (x, y))
 
         y += 50
+        
+        next_turn = self.combat.turn + 1
 
-        # 玩家1行动（只在玩家1输入时显示具体内容）
+        # 玩家1行动
+        frame1_text, frame1_color = self._get_frame_display(
+            self.player1, 0, self.p1_actions, self.p1_locked
+        )
+        frame2_text, frame2_color = self._get_frame_display(
+            self.player1, 1, self.p1_actions, self.p1_locked
+        )
+        
+        # 检查是否当前玩家且未锁定
         if self.current_player == 1 and not self.p1_locked:
-            action1 = self.action_names.get(self.p1_actions[0], "____") if len(self.p1_actions) > 0 else "____"
-            action2 = self.action_names.get(self.p1_actions[1], "____") if len(self.p1_actions) > 1 else "____"
-            p1_text = f"{PLAYER1_NAME}: [{action1}] [{action2}]"
-            color = ORANGE if len(self.p1_actions) == 2 else YELLOW
+            p1_text = f"{PLAYER1_NAME}: [{frame1_text}] [{frame2_text}]"
+            # 使用第二帧的颜色（因为它反映当前状态）
+            bg_color = frame2_color if len(self.p1_actions) >= 1 else frame1_color
         elif self.p1_locked:
-            p1_text = f"{PLAYER1_NAME}: [✓✓✓] [✓✓✓]"
-            color = LIGHT_RED
+            p1_text = f"{PLAYER1_NAME}: [{frame1_text}] [{frame2_text}]"
+            bg_color = LIGHT_RED
         else:
             p1_text = f"{PLAYER1_NAME}: [***] [***]"
-            color = LIGHT_RED
+            bg_color = LIGHT_RED
 
-        pygame.draw.rect(self.screen, color, (x - 10, y - 5, 300, 35), border_radius=5)
+        pygame.draw.rect(self.screen, bg_color, (x - 10, y - 5, 300, 35), border_radius=5)
         text = self.small_font.render(p1_text, True, BLACK)
         self.screen.blit(text, (x, y))
 
-        # 玩家2行动（只在玩家2输入时显示具体内容）
+        # 玩家2行动
         y += 50
+        frame1_text, frame1_color = self._get_frame_display(
+            self.player2, 0, self.p2_actions, self.p2_locked
+        )
+        frame2_text, frame2_color = self._get_frame_display(
+            self.player2, 1, self.p2_actions, self.p2_locked
+        )
+        
         if self.current_player == 2 and not self.p2_locked:
-            action1 = self.action_names.get(self.p2_actions[0], "____") if len(self.p2_actions) > 0 else "____"
-            action2 = self.action_names.get(self.p2_actions[1], "____") if len(self.p2_actions) > 1 else "____"
-            p2_text = f"{PLAYER2_NAME}:   [{action1}] [{action2}]"
-            color = ORANGE if len(self.p2_actions) == 2 else YELLOW
+            p2_text = f"{PLAYER2_NAME}:   [{frame1_text}] [{frame2_text}]"
+            bg_color = frame2_color if len(self.p2_actions) >= 1 else frame1_color
         elif self.p2_locked:
-            p2_text = f"{PLAYER2_NAME}:   [✓✓✓] [✓✓✓]"
-            color = LIGHT_BLUE
+            p2_text = f"{PLAYER2_NAME}:   [{frame1_text}] [{frame2_text}]"
+            bg_color = LIGHT_BLUE
         else:
             p2_text = f"{PLAYER2_NAME}:   [***] [***]"
-            color = LIGHT_BLUE
+            bg_color = LIGHT_BLUE
 
-        pygame.draw.rect(self.screen, color, (x - 10, y - 5, 300, 35), border_radius=5)
+        pygame.draw.rect(self.screen, bg_color, (x - 10, y - 5, 300, 35), border_radius=5)
         text = self.small_font.render(p2_text, True, BLACK)
         self.screen.blit(text, (x, y))
 
@@ -265,18 +318,38 @@ class GameUI:
             self.screen.blit(text, (x, y))
         elif not self.p1_locked and not self.p2_locked:
             if self.current_player == 1:
-                if len(self.p1_actions) == 2:
+                next_turn = self.combat.turn + 1
+                # 找到下一个需要输入的帧
+                next_input_frame = None
+                for frame_idx in range(2):
+                    frame_num = frame_idx + 1
+                    if not self.player1.is_frame_locked(next_turn, frame_num) and frame_idx >= len(self.p1_actions):
+                        next_input_frame = frame_num
+                        break
+                
+                if next_input_frame is None:
+                    # 所有帧都已输入或锁定
                     hint = UI_TEXT['selection_complete']
                     color = ORANGE
                 else:
-                    hint = UI_TEXT['alice_turn'].format(frame=len(self.p1_actions) + 1)
+                    hint = UI_TEXT['alice_turn'].format(frame=next_input_frame)
                     color = GREEN
             else:
-                if len(self.p2_actions) == 2:
+                next_turn = self.combat.turn + 1
+                # 找到下一个需要输入的帧
+                next_input_frame = None
+                for frame_idx in range(2):
+                    frame_num = frame_idx + 1
+                    if not self.player2.is_frame_locked(next_turn, frame_num) and frame_idx >= len(self.p2_actions):
+                        next_input_frame = frame_num
+                        break
+                
+                if next_input_frame is None:
+                    # 所有帧都已输入或锁定
                     hint = UI_TEXT['selection_complete']
                     color = ORANGE
                 else:
-                    hint = UI_TEXT['bob_turn'].format(frame=len(self.p2_actions) + 1)
+                    hint = UI_TEXT['bob_turn'].format(frame=next_input_frame)
                     color = GREEN
             text = self.small_font.render(hint, True, color)
             self.screen.blit(text, (x, y))
@@ -342,6 +415,8 @@ class GameUI:
                     color = GREEN
                 elif '⚔️' in message or '🦵' in message:
                     color = BLUE
+                elif '🔒' in message or '硬直' in message:
+                    color = PURPLE
                 elif '❌' in message:
                     color = DARK_GRAY
                 else:
@@ -418,22 +493,41 @@ class GameUI:
 
         # 空格键确认锁定
         if event.key == pygame.K_SPACE:
-            if self.current_player == 1 and len(self.p1_actions) == 2 and not self.p1_locked:
-                self.p1_locked = True
-                self.current_player = 2
-                print(f"✓ {PLAYER1_NAME}已锁定选择")
-            elif self.current_player == 2 and len(self.p2_actions) == 2 and not self.p2_locked:
-                self.p2_locked = True
-                print(f"✓ {PLAYER2_NAME}已锁定选择")
-                # 双方都锁定，执行回合
-                if self.p1_locked and self.p2_locked:
-                    self.execute_turn()
-            else:
-                # 未输入完2个行动就按空格
-                if self.current_player == 1 and len(self.p1_actions) < 2:
-                    print(UI_TEXT['alice_needs_more'].format(count=2 - len(self.p1_actions)))
-                elif self.current_player == 2 and len(self.p2_actions) < 2:
-                    print(UI_TEXT['bob_needs_more'].format(count=2 - len(self.p2_actions)))
+            next_turn = self.combat.turn + 1
+            
+            if self.current_player == 1 and not self.p1_locked:
+                # 检查是否所有需要的帧都已输入或锁定
+                frames_needed = 2
+                frames_ready = 0
+                for i in range(2):
+                    if i < len(self.p1_actions) or self.player1.is_frame_locked(next_turn, i + 1):
+                        frames_ready += 1
+                
+                if frames_ready == frames_needed:
+                    self.p1_locked = True
+                    self.current_player = 2
+                    print(f"✓ {PLAYER1_NAME}已锁定选择")
+                else:
+                    needed = frames_needed - frames_ready
+                    print(UI_TEXT['alice_needs_more'].format(count=needed))
+                    
+            elif self.current_player == 2 and not self.p2_locked:
+                # 检查是否所有需要的帧都已输入或锁定
+                frames_needed = 2
+                frames_ready = 0
+                for i in range(2):
+                    if i < len(self.p2_actions) or self.player2.is_frame_locked(next_turn, i + 1):
+                        frames_ready += 1
+                
+                if frames_ready == frames_needed:
+                    self.p2_locked = True
+                    print(f"✓ {PLAYER2_NAME}已锁定选择")
+                    # 双方都锁定，执行回合
+                    if self.p1_locked and self.p2_locked:
+                        self.execute_turn()
+                else:
+                    needed = frames_needed - frames_ready
+                    print(UI_TEXT['bob_needs_more'].format(count=needed))
             return
 
         # 玩家1输入（数字键1-9）
@@ -445,16 +539,33 @@ class GameUI:
             }
 
             if event.key in key_map:
-                if len(self.p1_actions) < 2:
+                next_turn = self.combat.turn + 1
+                
+                # 检查还需要输入哪些帧
+                frames_to_input = []
+                for frame_idx in range(2):
+                    frame_num = frame_idx + 1
+                    # 如果这一帧没有被锁定，且还没有输入，则需要输入
+                    if not self.player1.is_frame_locked(next_turn, frame_num) and frame_idx >= len(self.p1_actions):
+                        frames_to_input.append(frame_num)
+                
+                if len(frames_to_input) > 0:
+                    # 输入到第一个需要输入的帧
+                    target_frame = frames_to_input[0]
+                    
+                    # 如果第1帧被锁定，但我们要输入第2帧，需要先填充第1帧为None
+                    while len(self.p1_actions) < target_frame - 1:
+                        self.p1_actions.append(None)
+                    
                     key = key_map[event.key]
                     action = self.action_map[key]
                     self.p1_actions.append(action)
                     self.current_frame = len(self.p1_actions) + 1
-                    print(f"{PLAYER1_NAME}选择: {self.action_names[action]}")
+                    print(f"{PLAYER1_NAME}选择第{target_frame}帧: {self.action_names[action]}")
                 else:
                     print(UI_TEXT['already_selected'].format(player=PLAYER1_NAME))
 
-        # 玩家2输入（数字键1-9，和玩家1一样）
+        # 玩家2输入（数字键1-9）
         elif self.current_player == 2 and not self.p2_locked:
             letter_map = {
                 pygame.K_1: '1', pygame.K_2: '2', pygame.K_3: '3',
@@ -463,12 +574,29 @@ class GameUI:
             }
 
             if event.key in letter_map:
-                if len(self.p2_actions) < 2:
+                next_turn = self.combat.turn + 1
+                
+                # 检查还需要输入哪些帧
+                frames_to_input = []
+                for frame_idx in range(2):
+                    frame_num = frame_idx + 1
+                    # 如果这一帧没有被锁定，且还没有输入，则需要输入
+                    if not self.player2.is_frame_locked(next_turn, frame_num) and frame_idx >= len(self.p2_actions):
+                        frames_to_input.append(frame_num)
+                
+                if len(frames_to_input) > 0:
+                    # 输入到第一个需要输入的帧
+                    target_frame = frames_to_input[0]
+                    
+                    # 如果第1帧被锁定，但我们要输入第2帧，需要先填充第1帧为None
+                    while len(self.p2_actions) < target_frame - 1:
+                        self.p2_actions.append(None)
+                    
                     key = letter_map[event.key]
                     action = self.action_map[key]
                     self.p2_actions.append(action)
                     self.current_frame = len(self.p2_actions) + 1
-                    print(f"{PLAYER2_NAME}选择: {self.action_names[action]}")
+                    print(f"{PLAYER2_NAME}选择第{target_frame}帧: {self.action_names[action]}")
                 else:
                     print(UI_TEXT['already_selected'].format(player=PLAYER2_NAME))
 
@@ -485,8 +613,33 @@ class GameUI:
         sys.stdout = captured_output = io.StringIO()
 
         try:
+            # 为被硬直锁定的帧填充None
+            next_turn = self.combat.turn + 1
+            
+            # 准备玩家1的行动列表
+            p1_final_actions = []
+            for frame_idx in range(2):
+                frame_num = frame_idx + 1
+                if self.player1.is_frame_locked(next_turn, frame_num):
+                    p1_final_actions.append(None)  # 硬直锁定的帧
+                elif frame_idx < len(self.p1_actions):
+                    p1_final_actions.append(self.p1_actions[frame_idx])
+                else:
+                    p1_final_actions.append(None)
+            
+            # 准备玩家2的行动列表
+            p2_final_actions = []
+            for frame_idx in range(2):
+                frame_num = frame_idx + 1
+                if self.player2.is_frame_locked(next_turn, frame_num):
+                    p2_final_actions.append(None)  # 硬直锁定的帧
+                elif frame_idx < len(self.p2_actions):
+                    p2_final_actions.append(self.p2_actions[frame_idx])
+                else:
+                    p2_final_actions.append(None)
+            
             # 执行战斗
-            continue_battle = self.combat.execute_turn(self.p1_actions, self.p2_actions)
+            continue_battle = self.combat.execute_turn(p1_final_actions, p2_final_actions)
 
             # 获取输出
             output = captured_output.getvalue()

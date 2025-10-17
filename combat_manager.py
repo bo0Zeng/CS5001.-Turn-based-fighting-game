@@ -41,8 +41,8 @@ class CombatManager:
         执行一个回合（2帧）
         
         Args:
-            p1_actions: 玩家1的行动列表 ["punch", "kick"]
-            p2_actions: 玩家2的行动列表 ["defend", "punch"]
+            p1_actions: 玩家1的行动列表 ["punch", "kick"] 或 ["punch", None]（硬直锁定）
+            p2_actions: 玩家2的行动列表 ["defend", "punch"] 或 [None, "punch"]（硬直锁定）
         
         Returns:
             bool: 战斗是否继续（True=继续，False=结束）
@@ -50,12 +50,17 @@ class CombatManager:
         self.turn += 1
         self.show_battle_status()
         
+        # 清理过期的锁定
+        self.player1.clear_expired_locks(self.turn)
+        self.player2.clear_expired_locks(self.turn)
+        
         print(f"\n{self.player1.name} 行动: {p1_actions}")
         print(f"{self.player2.name} 行动: {p2_actions}")
         
         # 执行2帧
         for frame in range(2):
-            print(f"\n--- 第 {frame + 1} 帧 ---")
+            current_frame = frame + 1
+            print(f"\n--- 第 {current_frame} 帧 ---")
             
             # 重置单帧状态
             self.player1.reset_frame_status()
@@ -64,6 +69,15 @@ class CombatManager:
             # 获取当前帧的行动
             p1_action = p1_actions[frame] if frame < len(p1_actions) else None
             p2_action = p2_actions[frame] if frame < len(p2_actions) else None
+            
+            # 检查硬直锁定（优先级最高）
+            if self.player1.is_frame_locked(self.turn, current_frame):
+                print(f"🔒 {self.player1.name} 第{current_frame}帧被硬直锁定！")
+                p1_action = None
+            
+            if self.player2.is_frame_locked(self.turn, current_frame):
+                print(f"🔒 {self.player2.name} 第{current_frame}帧被硬直锁定！")
+                p2_action = None
             
             # 检查被控制状态
             if self.player1.controlled and p1_action:
@@ -74,21 +88,14 @@ class CombatManager:
                 print(f"⛓️ {self.player2.name} 被控制，无法行动！")
                 p2_action = None
             
-            # 检查硬直状态
-            if self.player1.stun_frames > 0 and p1_action:
-                print(f"😵 {self.player1.name} 硬直中，无法行动！")
-                p1_action = None
-            
-            if self.player2.stun_frames > 0 and p2_action:
-                print(f"😵 {self.player2.name} 硬直中，无法行动！")
-                p2_action = None
-            
             # 执行行动（同时执行）
             if p1_action:
-                self._execute_action(self.player1, self.player2, p1_action)
+                self._execute_action(self.player1, self.player2, p1_action, 
+                                   self.turn, current_frame)
             
             if p2_action:
-                self._execute_action(self.player2, self.player1, p2_action)
+                self._execute_action(self.player2, self.player1, p2_action, 
+                                   self.turn, current_frame)
             
             # 检查胜负
             if not self.player1.is_alive() or not self.player2.is_alive():
@@ -100,7 +107,7 @@ class CombatManager:
         
         return True
     
-    def _execute_action(self, actor, target, action):
+    def _execute_action(self, actor, target, action, current_turn, current_frame):
         """
         执行单个行动
         
@@ -108,14 +115,16 @@ class CombatManager:
             actor: 行动者
             target: 目标
             action: 行动名称
+            current_turn: 当前回合号
+            current_frame: 当前帧号
         """
         distance = self.get_distance()
         
-        # 攻击类
+        # 攻击类（需要传递回合和帧信息）
         if action == "punch":
-            Actions.punch(actor, target, distance)
+            Actions.punch(actor, target, distance, current_turn, current_frame)
         elif action == "kick":
-            Actions.kick(actor, target, distance)
+            Actions.kick(actor, target, distance, current_turn, current_frame)
         
         # 控制类
         elif action == "control":

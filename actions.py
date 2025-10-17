@@ -8,7 +8,7 @@ from config import (
     KICK_DAMAGE, KICK_RANGE,
     GRAB_DAMAGE, THROW_DAMAGE, THROW_DISTANCE,
     BURST_SELF_DAMAGE, BURST_BASE_DAMAGE, BURST_MISS_DAMAGE, BURST_RANGE,
-    MAP_SIZE, COMBO_THRESHOLD
+    MAP_SIZE, COMBO_THRESHOLD, STUN_FRAMES
 )
 
 
@@ -16,7 +16,7 @@ class Actions:
     """招式系统 - 所有招式作为静态方法"""
     
     @staticmethod
-    def punch(attacker, defender, distance):
+    def punch(attacker, defender, distance, current_turn, current_frame):
         """
         拳攻击
         
@@ -24,6 +24,8 @@ class Actions:
             attacker: 攻击者
             defender: 防御者
             distance: 当前距离
+            current_turn: 当前回合号
+            current_frame: 当前帧号
         
         Returns:
             bool: 是否成功
@@ -50,14 +52,15 @@ class Actions:
         print(f"🎯 {defender.name} 连击计数：{defender.combo_count}/{COMBO_THRESHOLD}")
         
         if defender.combo_count >= COMBO_THRESHOLD:
-            defender.stun_frames += 1
+            # 使用配置的硬直帧数
+            stun_frames = STUN_FRAMES.get('combo', 1)
+            defender.apply_stun(stun_frames, current_turn, current_frame)
             defender.combo_count = 0
-            print(f"💫 {defender.name} 连击触发硬直！")
         
         return True
     
     @staticmethod
-    def kick(attacker, defender, distance):
+    def kick(attacker, defender, distance, current_turn, current_frame):
         """腿攻击"""
         if distance > KICK_RANGE:
             print(f"❌ {attacker.name} 腿攻击距离不够（需要{KICK_RANGE}格，实际{distance}格）")
@@ -79,9 +82,9 @@ class Actions:
         print(f"🎯 {defender.name} 连击计数：{defender.combo_count}/{COMBO_THRESHOLD}")
         
         if defender.combo_count >= COMBO_THRESHOLD:
-            defender.stun_frames += 1
+            stun_frames = STUN_FRAMES.get('combo', 1)
+            defender.apply_stun(stun_frames, current_turn, current_frame)
             defender.combo_count = 0
-            print(f"💫 {defender.name} 连击触发硬直！")
         
         return True
     
@@ -222,7 +225,7 @@ if __name__ == "__main__":
     distance = abs(alice.position - bob.position)
     
     print("测试拳攻击：")
-    Actions.punch(alice, bob, distance)
+    Actions.punch(alice, bob, distance, current_turn=1, current_frame=1)
     
     print("\n测试控制+抱摔：")
     alice.position = 2

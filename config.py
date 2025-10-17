@@ -51,6 +51,17 @@ CHARGE_CANCEL_RISK = 2     # 取消蓄力风险窗口
 COMBO_THRESHOLD = 3        # 连击触发阈值
 COMBO_STUN_FRAMES = 1      # 连击触发硬直帧数
 
+# ==================== 硬直配置 ====================
+# 各种招式造成的硬直帧数（可以在这里配置不同技能的硬直时长）
+STUN_FRAMES = {
+    'combo': 1,           # 连击触发的硬直
+    'charge_attack': 1,   # 蓄力攻击造成的硬直
+    'counter_fail': 1,    # 防御反击失败的硬直
+    'dodge_success': 1,   # 闪避成功造成对手的硬直
+    'kick_interrupt': 2,  # 腿攻击被打断的硬直
+    'punch_interrupt': 1, # 拳攻击被打断的硬直
+}
+
 # ==================== UI配置 ====================
 # 窗口设置
 WINDOW_WIDTH = 1100
@@ -70,6 +81,7 @@ LIGHT_RED = (255, 200, 200)
 LIGHT_BLUE = (200, 200, 255)
 LIGHT_GRAY = (240, 240, 240)
 ORANGE = (255, 165, 0)
+PURPLE = (200, 100, 255)  # 新增：用于硬直锁定显示
 
 # 布局设置
 GRID_START_X = 50
@@ -112,6 +124,10 @@ UI_TEXT = {
     'waiting_alice': '等待Alice确认...',
     'both_confirmed': '双方已确认！执行回合...',
     'executing': '⏳ 回合执行中... ({time:.1f}s)',
+    
+    # 硬直相关提示
+    'frame_locked': '🔒 第{frame}帧被硬直锁定',
+    'stun_locked': '😵 硬直中，无法输入',
     
     # 警告提示
     'alice_needs_more': '⚠ Alice还需要选择 {count} 个行动',
