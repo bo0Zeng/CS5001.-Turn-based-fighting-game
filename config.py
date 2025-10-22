@@ -29,7 +29,7 @@ CHARGE_2_DAMAGE_BONUS = 3
 CHARGE_2_RANGE_BONUS = 1
 
 GRAB_DAMAGE = 4
-GRAB_DAMAGE_BUFF = 2  # 抱摔时执行者受伤+2
+GRAB_DAMAGE_BUFF = 1  # 抱摔时执行者受伤+1（配合爆血结算后距离）
 
 THROW_DAMAGE = 2
 THROW_DISTANCE = 3
@@ -104,21 +104,21 @@ UI_TEXT = {
     'turn_info': '回合 {turn} | 距离: {distance}格',
     'battle_log_title': '战斗日志',
     'current_selection': '当前选择',
-    'alice_turn': 'Alice 第{frame}帧',
-    'bob_turn': 'Bob 第{frame}帧',
+    'alice_turn': 'Red 第{frame}帧',
+    'bob_turn': 'Blue 第{frame}帧',
     'selection_complete': '✓ 已选完，按 SPACE 确认',
-    'waiting_bob': '等待Bob确认...',
-    'waiting_alice': '等待Alice确认...',
+    'waiting_bob': '等待Blue确认...',
+    'waiting_alice': '等待Red确认...',
     'both_confirmed': '双方已确认！',
     'controlled_limit': '⛓️ 被控制，只能S或O',
-    'alice_needs_more': '⚠ Alice还需要 {count} 个',
-    'bob_needs_more': '⚠ Bob还需要 {count} 个',
-    'alice_undo': '↩️ Alice撤销: {action}',
-    'bob_undo': '↩️ Bob撤销: {action}',
+    'alice_needs_more': '⚠ Red还需要 {count} 个',
+    'bob_needs_more': '⚠ Blue还需要 {count} 个',
+    'alice_undo': '↩️ Red撤销: {action}',
+    'bob_undo': '↩️ Blue撤销: {action}',
     'no_undo': '⚠ {player}无可撤销',
     'already_selected': '⚠ {player}已选2个',
     'game_over_draw': '平局！',
     'game_over_win': '{winner} 获胜！',
     'restart_hint': '按 R 重新开始 | ESC 退出',
-    'turn_based_hint': 'Alice和Bob轮流输入'
+    'turn_based_hint': 'Red和Blue轮流输入'
 }

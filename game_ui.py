@@ -1,6 +1,6 @@
 """
 game_ui.py
-可视化界面 - 完整版
+可视化界面 - 完整版（兼容完全状态化终极版）
 支持：日志历史浏览、简洁/详细日志切换
 """
 
@@ -50,7 +50,6 @@ class GameUI:
         self.hovered_skill = None
         self.hovered_mechanic = None
         
-        # 日志系统
         self.viewing_turn = 0
         self.is_viewing_history = False
         self.simple_log_mode = False
@@ -74,12 +73,7 @@ class GameUI:
         return pygame.font.Font(None, size)
 
     def _extract_simple_log(self, messages):
-        """
-        提取简易日志 - 格式：
-        第X回合 距离: Y格
-        第1帧: Alice[行动] Bob[行动] → Alice HP X Bob HP Y
-        第2帧: Alice[行动] Bob[行动] → Alice HP X Bob HP Y
-        """
+        """提取简易日志"""
         simple = []
         current_frame = None
         frame_actions = {'alice': None, 'bob': None}
@@ -90,22 +84,16 @@ class GameUI:
             if not msg_clean:
                 continue
             
-            # 回合信息
             if "回合" in msg and "距离:" in msg:
                 if current_frame is not None:
-                    # 保存上一帧
                     self._append_frame_summary(simple, current_frame, frame_actions, frame_results)
-                
                 simple.append(msg_clean)
                 current_frame = None
                 continue
             
-            # 帧标记
             if "---" in msg and "帧" in msg:
                 if current_frame is not None:
                     self._append_frame_summary(simple, current_frame, frame_actions, frame_results)
-                
-                # 提取帧数
                 frame_num = msg.replace('-', '').replace('---', '').strip()
                 current_frame = frame_num
                 frame_actions = {'alice': None, 'bob': None}
@@ -124,11 +112,11 @@ class GameUI:
                 if PLAYER2_NAME in msg:
                     frame_actions['bob'] = "爆血"
             elif "✨" in msg or "蓄力" in msg:
-                if PLAYER1_NAME in msg:
+                if PLAYER1_NAME in msg and "将获得" in msg:
                     frame_actions['alice'] = "蓄力"
-                if PLAYER2_NAME in msg:
+                if PLAYER2_NAME in msg and "将获得" in msg:
                     frame_actions['bob'] = "蓄力"
-            elif "📍" in msg and "控制" in msg:
+            elif "🔒" in msg and "控制" in msg:
                 if PLAYER1_NAME in msg:
                     frame_actions['alice'] = "控制"
                 if PLAYER2_NAME in msg:
@@ -149,7 +137,7 @@ class GameUI:
                         frame_actions['alice'] = "反击"
                     if PLAYER2_NAME in msg:
                         frame_actions['bob'] = "反击"
-                elif "防御" in msg:
+                elif "防御" in msg or "格挡" in msg:
                     if PLAYER1_NAME in msg:
                         frame_actions['alice'] = "防御"
                     if PLAYER2_NAME in msg:
@@ -164,16 +152,10 @@ class GameUI:
                     frame_actions['alice'] = "冲刺"
                 if PLAYER2_NAME in msg:
                     frame_actions['bob'] = "冲刺"
-            elif "❌" in msg and "移动失败" in msg:
-                if PLAYER1_NAME in msg:
-                    frame_actions['alice'] = "移动失败"
-                if PLAYER2_NAME in msg:
-                    frame_actions['bob'] = "移动失败"
             
-            # 提取结果（HP变化）
+            # 提取结果
             if "💔" in msg and "受" in msg and "伤" in msg:
                 if PLAYER1_NAME in msg:
-                    # 格式: "💔 Alice 受X伤，HP: Y/Z"
                     parts = msg.split("HP:")
                     if len(parts) > 1:
                         hp_info = parts[1].strip()
@@ -189,14 +171,13 @@ class GameUI:
                 if PLAYER2_NAME in msg:
                     frame_results['bob'] = "格挡"
         
-        # 保存最后一帧
         if current_frame is not None:
             self._append_frame_summary(simple, current_frame, frame_actions, frame_results)
         
         return simple if simple else ["（无信息）"]
     
     def _append_frame_summary(self, simple, frame_label, actions, results):
-        """添加帧摘要到简易日志"""
+        """添加帧摘要"""
         alice_act = actions.get('alice') or "—"
         bob_act = actions.get('bob') or "—"
         alice_res = results.get('alice') or ""
@@ -209,6 +190,7 @@ class GameUI:
         simple.append(line)
 
     def draw_grid(self):
+        """绘制地图网格"""
         for i in range(MAP_SIZE):
             x = GRID_START_X + i * CELL_WIDTH
             y = GRID_START_Y
@@ -217,7 +199,7 @@ class GameUI:
             self.screen.blit(text, (x + CELL_WIDTH//2 - 10, y + 15))
 
     def draw_player(self, player, color):
-        """绘制玩家，处理重叠情况"""
+        """绘制玩家"""
         distance = self.combat.get_distance()
         
         # 如果距离为0且被控制，不显示被控制者（只显示控制者）
@@ -227,16 +209,15 @@ class GameUI:
         x = GRID_START_X + (player.position - 1) * CELL_WIDTH + CELL_WIDTH // 2
         y = GRID_START_Y + CELL_HEIGHT // 2
         
-        # 如果距离为0且是控制者，控制者显示在上层
+        # 如果距离为0且是控制者，稍微往上移（叠加显示）
         if distance == 0 and not player.controlled:
-            y -= 15  # 稍微往上移动
+            y -= 15
         
         pygame.draw.circle(self.screen, color, (x, y), PLAYER_RADIUS)
         
         # 被控制状态显示
         if player.controlled:
             pygame.draw.circle(self.screen, YELLOW, (x, y), PLAYER_RADIUS + 5, 3)
-            # 在旁边显示"被控制"文字
             status_text = self.tiny_font.render("⛓️被控", True, YELLOW)
             self.screen.blit(status_text, (x - 15, y + 45))
         
@@ -271,6 +252,7 @@ class GameUI:
             self.screen.blit(t, tr)
 
     def draw_header(self):
+        """绘制标题"""
         text = self.large_font.render(f"回合 {self.combat.turn} | 距离: {self.combat.get_distance()}格", True, BLACK)
         self.screen.blit(text, (WINDOW_WIDTH//2 - 200, 50))
         
@@ -285,6 +267,7 @@ class GameUI:
             pygame.draw.rect(self.screen, GREEN, (px, py, prog, 10))
 
     def draw_key_hints(self):
+        """绘制按键说明"""
         x, y = GRID_START_X, GRID_START_Y + CELL_HEIGHT + 40
         self.screen.blit(self.font.render("按键说明", True, BLACK), (x, y))
         
@@ -307,6 +290,7 @@ class GameUI:
             self.screen.blit(t, (x, ly))
 
     def draw_mechanics(self):
+        """绘制游戏机制"""
         x, y = GRID_START_X + 280, GRID_START_Y + CELL_HEIGHT + 40
         self.screen.blit(self.font.render("游戏机制", True, BLACK), (x, y))
         
@@ -319,7 +303,8 @@ class GameUI:
             rect = pygame.Rect(x-8, my-2, 180, 26)
             hover = rect.collidepoint(mouse_pos)
             
-            bg = LIGHT_BLUE if i == 0 else LIGHT_RED
+            bg_colors = [LIGHT_BLUE, LIGHT_RED, (200, 255, 200)]
+            bg = bg_colors[i % len(bg_colors)]
             if hover:
                 bg = YELLOW
                 self.hovered_mechanic = key
@@ -329,6 +314,7 @@ class GameUI:
             self.screen.blit(t, (x, my))
 
     def draw_tooltip(self):
+        """绘制技能提示"""
         info = None
         if self.hovered_skill and self.hovered_skill in SKILL_DESCRIPTIONS:
             info = SKILL_DESCRIPTIONS[self.hovered_skill]
@@ -357,7 +343,6 @@ class GameUI:
         pygame.draw.rect(self.screen, LIGHT_GRAY, (MESSAGE_BOX_X, MESSAGE_BOX_Y, MESSAGE_BOX_WIDTH, MESSAGE_BOX_HEIGHT), border_radius=10)
         pygame.draw.rect(self.screen, DARK_GRAY, (MESSAGE_BOX_X, MESSAGE_BOX_Y, MESSAGE_BOX_WIDTH, MESSAGE_BOX_HEIGHT), 2, border_radius=10)
         
-        # 标题
         title_text = "战斗日志"
         if self.simple_log_mode:
             title_text += " (简洁)"
@@ -371,17 +356,14 @@ class GameUI:
         self.screen.blit(self.font.render(title_text, True, title_color), (MESSAGE_BOX_X+10, MESSAGE_BOX_Y+10))
         pygame.draw.line(self.screen, DARK_GRAY, (MESSAGE_BOX_X+10, MESSAGE_BOX_Y+45), (MESSAGE_BOX_X+MESSAGE_BOX_WIDTH-10, MESSAGE_BOX_Y+45), 2)
         
-        # 获取消息
         if self.is_viewing_history and self.viewing_turn > 0:
             messages = self.combat.get_turn_log(self.viewing_turn)
         else:
             messages = self.battle_messages
         
-        # 简洁模式
         if self.simple_log_mode:
             messages = self._extract_simple_log(messages)
         
-        # 显示消息
         y = MESSAGE_BOX_Y + 55
         for msg in messages[-28:]:
             clean = msg.replace('=','').strip()
@@ -393,10 +375,11 @@ class GameUI:
             if '💔' in msg: color = RED
             elif '✨' in msg: color = PURPLE
             elif '⚔️' in msg: color = BLUE
-            elif '📍' in msg or '硬直' in msg: color = ORANGE
+            elif '🔒' in msg or '硬直' in msg: color = ORANGE
             elif '❌' in msg: color = DARK_GRAY
             elif '✅' in msg: color = GREEN
             elif '第' in msg and '帧' in msg: color = BLUE
+            elif '预测' in msg: color = PURPLE
             
             t = self.tiny_font.render(clean, True, color)
             if t.get_width() > MESSAGE_BOX_WIDTH - 20:
@@ -409,7 +392,6 @@ class GameUI:
             if y > MESSAGE_BOX_Y + MESSAGE_BOX_HEIGHT - 80:
                 break
         
-        # 底部提示
         hint_y = MESSAGE_BOX_Y + MESSAGE_BOX_HEIGHT - 65
         pygame.draw.line(self.screen, DARK_GRAY, (MESSAGE_BOX_X+10, hint_y-5), (MESSAGE_BOX_X+MESSAGE_BOX_WIDTH-10, hint_y-5), 1)
         
@@ -431,13 +413,14 @@ class GameUI:
             self.screen.blit(t, (MESSAGE_BOX_X+10, hint_y+36))
 
     def draw_selection(self):
+        """绘制当前选择"""
         x, y = GRID_START_X, GRID_START_Y + CELL_HEIGHT + 280
         self.screen.blit(self.font.render("当前选择", True, BLACK), (x, y))
         
         y += 45
         next_turn = self.combat.turn + 1
         
-        # P1
+        # P1显示
         f1, c1 = self._get_display(self.player1, 0, self.p1_actions, self.p1_locked, next_turn)
         f2, c2 = self._get_display(self.player1, 1, self.p1_actions, self.p1_locked, next_turn)
         
@@ -454,7 +437,7 @@ class GameUI:
         pygame.draw.rect(self.screen, bg, (x-10, y-5, 350, 35), border_radius=5)
         self.screen.blit(self.small_font.render(p1_text, True, BLACK), (x, y))
         
-        # P2
+        # P2显示
         y += 45
         f1, c1 = self._get_display(self.player2, 0, self.p2_actions, self.p2_locked, next_turn)
         f2, c2 = self._get_display(self.player2, 1, self.p2_actions, self.p2_locked, next_turn)
@@ -472,7 +455,7 @@ class GameUI:
         pygame.draw.rect(self.screen, bg, (x-10, y-5, 350, 35), border_radius=5)
         self.screen.blit(self.small_font.render(p2_text, True, BLACK), (x, y))
         
-        # 提示
+        # 提示信息
         y += 45
         hint, color = self._get_hint()
         self.screen.blit(self.small_font.render(hint, True, color), (x, y))
@@ -481,20 +464,22 @@ class GameUI:
         self.screen.blit(self.tiny_font.render("SPACE确认 | Backspace撤销", True, ORANGE), (x, y))
 
     def _get_display(self, player, idx, actions, locked, next_turn):
+        """获取显示文本和颜色"""
         if idx < len(actions):
             if actions[idx] is None:
-                return "📍STUN", PURPLE
+                return "🔒STUN", PURPLE
             elif actions[idx] == 'burst':
                 return "Burst💥", ORANGE
             else:
                 return self.action_names[actions[idx]], ORANGE if len(actions)==2 else YELLOW
         
         if player.is_frame_locked(next_turn, idx+1):
-            return "📍STUN", PURPLE
+            return "🔒STUN", PURPLE
         
         return ("✓✓✓" if locked else "____"), (LIGHT_GRAY if locked else YELLOW)
 
     def _get_hint(self):
+        """获取提示信息"""
         if self.p1_locked and self.p2_locked:
             return (UI_TEXT['both_confirmed'], ORANGE)
         if self.p1_locked:
@@ -520,6 +505,7 @@ class GameUI:
         return (UI_TEXT['selection_complete'], ORANGE)
 
     def draw_game_over(self):
+        """绘制游戏结束画面"""
         s = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT))
         s.set_alpha(200)
         s.fill(BLACK)
@@ -535,13 +521,14 @@ class GameUI:
         self.screen.blit(h, (WINDOW_WIDTH//2 - 150, WINDOW_HEIGHT//2 + 50))
 
     def handle_input(self, event):
+        """处理输入"""
         if event.key == pygame.K_BACKSPACE:
             if self.current_player == 1 and not self.p1_locked and self.p1_actions:
                 removed = self.p1_actions.pop()
-                print(f"↩️ Alice撤销: {self.action_names.get(removed, '???')}")
+                print(f"↩️ {PLAYER1_NAME}撤销: {self.action_names.get(removed, '???')}")
             elif self.current_player == 2 and not self.p2_locked and self.p2_actions:
                 removed = self.p2_actions.pop()
-                print(f"↩️ Bob撤销: {self.action_names.get(removed, '???')}")
+                print(f"↩️ {PLAYER2_NAME}撤销: {self.action_names.get(removed, '???')}")
             return
         
         if event.key == pygame.K_SPACE:
@@ -559,8 +546,16 @@ class GameUI:
                 self._add_action(player, actions, key, name)
 
     def _add_action(self, player, actions, key, name):
+        """添加行动"""
         next_turn = self.combat.turn + 1
         action = self.action_map[key]
+        
+        # 检查grab/throw的前置条件（UI层提示）
+        if action in ['grab', 'throw']:
+            opponent = self.player2 if player == self.player1 else self.player1
+            if not opponent.controlled:
+                print(f"⛓️ {name}：对手未被控制，无法使用{action}！")
+                return
         
         for i in range(2):
             if i < len(actions):
@@ -592,6 +587,7 @@ class GameUI:
         print(f"⚠ {name}已选2个")
 
     def _confirm(self):
+        """确认选择"""
         next_turn = self.combat.turn + 1
         
         if self.current_player == 1 and not self.p1_locked:
@@ -612,9 +608,9 @@ class GameUI:
                 
                 self.p1_locked = True
                 self.current_player = 2
-                print(f"✓ Alice已确定")
+                print(f"✓ {PLAYER1_NAME}已确定")
             else:
-                print("⚠ Alice还需要输入")
+                print(f"⚠ {PLAYER1_NAME}还需要输入")
         
         elif self.current_player == 2 and not self.p2_locked:
             ready = True
@@ -633,13 +629,14 @@ class GameUI:
                         self.p2_actions.append(None)
                 
                 self.p2_locked = True
-                print(f"✓ Bob已确定")
+                print(f"✓ {PLAYER2_NAME}已确定")
                 if self.p1_locked:
                     self.start_execution()
             else:
-                print("⚠ Bob还需要输入")
+                print(f"⚠ {PLAYER2_NAME}还需要输入")
 
     def start_execution(self):
+        """开始执行"""
         self.game_state = "frame_executing"
         self.current_frame_index = 0
         self.frame_delay_timer = 0
@@ -649,6 +646,7 @@ class GameUI:
         self.p2_final_actions = self._prepare(self.player2, self.p2_actions)
 
     def _prepare(self, player, actions):
+        """准备行动列表"""
         next_turn = self.combat.turn + 1
         final = []
         for i in range(2):
@@ -664,6 +662,7 @@ class GameUI:
         return final
 
     def execute_frame(self):
+        """执行帧"""
         idx = self.current_frame_index
         frame = idx + 1
         
@@ -713,6 +712,7 @@ class GameUI:
             sys.stdout = old_stdout
 
     def update(self):
+        """更新游戏状态"""
         if self.game_state == "frame_executing":
             if self.frame_delay_timer == 0:
                 self.execute_frame()
@@ -736,6 +736,7 @@ class GameUI:
                 self.reset_turn()
 
     def reset_turn(self):
+        """重置回合"""
         self.p1_actions = []
         self.p2_actions = []
         self.p1_locked = False
@@ -746,6 +747,7 @@ class GameUI:
         self.is_viewing_history = False
 
     def reset_game(self):
+        """重置游戏"""
         self.player1 = Player(PLAYER1_NAME, PLAYER1_START_POS)
         self.player2 = Player(PLAYER2_NAME, PLAYER2_START_POS)
         self.combat = CombatManager(self.player1, self.player2)
@@ -755,6 +757,7 @@ class GameUI:
         self.is_viewing_history = False
 
     def _navigate_history(self, direction):
+        """浏览历史"""
         if len(self.combat.turn_logs) == 0:
             return
         
@@ -778,6 +781,7 @@ class GameUI:
                     print(f"📖 返回最新")
 
     def run(self):
+        """主循环"""
         running = True
         
         while running:
@@ -792,19 +796,16 @@ class GameUI:
                     elif event.key == pygame.K_r and self.game_state == "game_over":
                         self.reset_game()
                     
-                    # TAB切换日志模式
                     elif event.key == pygame.K_TAB:
                         self.simple_log_mode = not self.simple_log_mode
                         mode = "简洁" if self.simple_log_mode else "详细"
                         print(f"📋 切换到{mode}日志")
                     
-                    # 左右箭头浏览历史
                     elif event.key == pygame.K_LEFT:
                         self._navigate_history('left')
                     elif event.key == pygame.K_RIGHT:
                         self._navigate_history('right')
                     
-                    # 输入阶段
                     elif self.game_state == "input":
                         self.handle_input(event)
             
@@ -833,6 +834,7 @@ class GameUI:
 
 
 def main():
+    """启动图形界面"""
     game = GameUI()
     game.run()
 
