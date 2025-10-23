@@ -1,16 +1,16 @@
 """
 player.py
-玩家类 - 纯状态管理（完全状态化重构版）
+玩家类 - 纯状态管理（完全状态化重构版） / Player Class - Pure State Management (Fully State-based Refactored Version)
 
-修改：
-1. 删除 grab_damage_buff 相关代码
+修改： / Changes:
+1. 删除 grab_damage_buff 相关代码 / Removed grab_damage_buff related code
 """
 
 from config import PLAYER_MAX_HP
 
 
 class Player:
-    """玩家类 - 纯状态管理"""
+    """玩家类 - 纯状态管理 / Player Class - Pure State Management"""
     
     def __init__(self, name, position=1):
         self.name = name
@@ -19,7 +19,7 @@ class Player:
         self.position = position
         self.is_left = None
         
-        # ===== 持久状态 =====
+        # ===== 持久状态 ===== / ===== Persistent State =====
         self.controlled = False
         self.controller = None
         self.controlled_from_position = None
@@ -30,15 +30,15 @@ class Player:
         self.last_charge_frame = -1
         self.dash_buff_stacks = 0
         
-        # ===== 连击追踪 =====
+        # ===== 连击追踪 ===== / ===== Combo Tracking =====
         self.combo_count = 0
         self.last_hit_turn = -1
         self.last_hit_frame = -1
         
-        # ===== 硬直追踪 =====
+        # ===== 硬直追踪 ===== / ===== Stun Tracking =====
         self.locked_frames = []
         
-        # ===== 待处理状态队列 =====
+        # ===== 待处理状态队列 ===== / ===== Pending State Queues =====
         self.position_states = []
         self.damage_states = []
         self.defense_states = []
@@ -46,7 +46,7 @@ class Player:
         self.buff_states = []
         self.marker_states = []
         
-        # ===== 单帧临时标记 =====
+        # ===== 单帧临时标记 ===== / ===== Single Frame Temporary Markers =====
         self.position_before_move = position
         self.attack_range_this_frame = 0
         self.control_range_this_frame = 0
@@ -57,37 +57,37 @@ class Player:
     
     # ========== 状态队列管理 ==========
     def add_position_state(self, delta, source="self"):
-        """添加位置变化状态"""
+        """添加位置变化状态 / Add position change state"""
         from state import PositionState
         self.position_states.append(PositionState(delta, source))
     
     def add_damage_state(self, amount, source=""):
-        """添加伤害状态"""
+        """添加伤害状态 / Add damage state"""
         from state import DamageState
         self.damage_states.append(DamageState(amount, source))
     
     def add_defense_state(self, reduction):
-        """添加防御状态"""
+        """添加防御状态 / Add defense state"""
         from state import DefenseState
         self.defense_states.append(DefenseState(reduction))
     
     def add_control_state(self, state_type, value=0, target=None):
-        """添加控制状态"""
+        """添加控制状态 / Add control state"""
         from state import ControlState
         self.control_states.append(ControlState(state_type, value, target))
     
     def add_buff_state(self, buff_type, action, value=0):
-        """添加Buff变化状态"""
+        """添加Buff变化状态 / Add buff change state"""
         from state import BuffState
         self.buff_states.append(BuffState(buff_type, action, value))
     
     def add_marker_state(self, marker_type):
-        """添加标记状态"""
+        """添加标记状态 / Add marker state"""
         from state import MarkerState
         self.marker_states.append(MarkerState(marker_type))
     
     def clear_all_states(self):
-        """清空所有状态队列"""
+        """清空所有状态队列 / Clear all state queues"""
         self.position_states = []
         self.damage_states = []
         self.defense_states = []
@@ -96,26 +96,26 @@ class Player:
         self.marker_states = []
     
     def has_marker(self, marker_type):
-        """检查是否有某个标记"""
+        """检查是否有某个标记 / Check if has a specific marker"""
         return any(s.type == marker_type for s in self.marker_states)
     
     # ========== 硬直管理 ==========
     def lock_frame(self, turn, frame):
-        """锁定某一帧"""
+        """锁定某一帧 / Lock a specific frame"""
         if (turn, frame) not in self.locked_frames:
             self.locked_frames.append((turn, frame))
     
     def is_frame_locked(self, turn, frame):
-        """检查某一帧是否被锁定"""
+        """检查某一帧是否被锁定 / Check if a specific frame is locked"""
         return (turn, frame) in self.locked_frames
     
     def clear_old_locks(self, current_turn):
-        """清理过期的硬直记录"""
+        """清理过期的硬直记录 / Clear expired stun records"""
         self.locked_frames = [(t, f) for t, f in self.locked_frames if t >= current_turn]
     
     # ========== 蓄力管理 ==========
     def can_stack_charge(self, current_turn, current_frame, last_turn, last_frame):
-        """检查是否可以叠加蓄力（连续两帧）"""
+        """检查是否可以叠加蓄力（连续两帧） / Check if charge can be stacked (consecutive two frames)"""
         # 同回合连续帧
         if current_turn == last_turn and current_frame == last_frame + 1:
             return True
@@ -126,7 +126,7 @@ class Player:
     
     # ========== 连击管理 ==========
     def is_hit_consecutive(self, current_turn, current_frame):
-        """检查是否连续被击中"""
+        """检查是否连续被击中 / Check if hit consecutively"""
         if self.combo_count == 0:
             return True
         # 同回合连续帧
@@ -139,7 +139,7 @@ class Player:
     
     # ========== 帧重置 ==========
     def reset_frame(self):
-        """重置单帧状态（每帧开始时调用）"""
+        """重置单帧状态（每帧开始时调用） / Reset single frame state (called at the start of each frame)"""
         self.position_before_move = self.position
         self.attack_range_this_frame = 0
         self.control_range_this_frame = 0
@@ -151,18 +151,18 @@ class Player:
     
     # ========== 显示 ==========
     def show_status(self):
-        """显示玩家状态"""
-        status = f"📊 {self.name}: HP={self.hp}/{self.max_hp}, 位置={self.position}"
+        """显示玩家状态 / Show player status"""
+        status = f"{self.name}: HP={self.hp}/{self.max_hp}, 位置={self.position} / Position={self.position}"
         
         states = []
         if self.controlled:
-            states.append(f"被{self.controller}控制")
+            states.append(f"被{self.controller}控制 / Controlled by {self.controller}")
         if self.charge_level > 0:
-            states.append(f"蓄力{self.charge_level}")
+            states.append(f"蓄力{self.charge_level} / Charge {self.charge_level}")
         if self.dash_buff_stacks > 0:
-            states.append(f"冲锋x{self.dash_buff_stacks}")
+            states.append(f"冲锋x{self.dash_buff_stacks} / Dash x{self.dash_buff_stacks}")
         if self.combo_count > 0:
-            states.append(f"连击{self.combo_count}/3")
+            states.append(f"连击{self.combo_count}/3 / Combo {self.combo_count}/3")
         
         if states:
             status += " [" + ", ".join(states) + "]"
@@ -170,5 +170,5 @@ class Player:
         print(status)
     
     def is_alive(self):
-        """检查是否存活"""
+        """检查是否存活 / Check if alive"""
         return self.hp > 0

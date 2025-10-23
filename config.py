@@ -1,9 +1,11 @@
 """
 config.py
-游戏配置文件 - 所有常量和配置（重构版）
+游戏配置文件 - 所有常量和配置（重构版） / Game Configuration - All Constants and Settings (Refactored)
 
 修改：
 1. 删除 GRAB_DAMAGE_BUFF（抱摔不再增加受伤buff）
+Changes:
+1. Removed GRAB_DAMAGE_BUFF (Grab no longer increases damage buff)
 """
 
 # ==================== 游戏基础设置 ====================
@@ -89,7 +91,7 @@ HP_BAR_OFFSET_Y = -45
 COMBO_DISPLAY_OFFSET_Y = -55
 
 MESSAGE_BOX_X = 870
-MESSAGE_BOX_Y = 150
+MESSAGE_BOX_Y = 135
 MESSAGE_BOX_WIDTH = 310
 MESSAGE_BOX_HEIGHT = 600
 
@@ -102,25 +104,25 @@ SEPARATOR = "=" * 60
 
 # ==================== UI文本 ====================
 UI_TEXT = {
-    'title': '回合制战斗游戏',
-    'turn_info': '回合 {turn} | 距离: {distance}格',
-    'battle_log_title': '战斗日志',
-    'current_selection': '当前选择',
-    'alice_turn': 'Red 第{frame}帧',
-    'bob_turn': 'Blue 第{frame}帧',
-    'selection_complete': '✓ 已选完，按 SPACE 确认',
-    'waiting_bob': '等待Blue确认...',
-    'waiting_alice': '等待Red确认...',
-    'both_confirmed': '双方已确认！',
-    'controlled_limit': '⛓️ 被控制，只能S或O',
-    'alice_needs_more': '⚠ Red还需要 {count} 个',
-    'bob_needs_more': '⚠ Blue还需要 {count} 个',
-    'alice_undo': '↩️ Red撤销: {action}',
-    'bob_undo': '↩️ Blue撤销: {action}',
-    'no_undo': '⚠ {player}无可撤销',
-    'already_selected': '⚠ {player}已选2个',
-    'game_over_draw': '平局！',
-    'game_over_win': '{winner} 获胜！',
-    'restart_hint': '按 R 重新开始 | ESC 退出',
-    'turn_based_hint': 'Red和Blue轮流输入'
+    'title': '回合制战斗游戏 / Turn-Based Battle Game',
+    'turn_info': '回合 {turn} | 距离: {distance}格 / Turn {turn} | Distance: {distance} spaces',
+    'battle_log_title': '战斗日志 / Battle Log',
+    'current_selection': '当前选择 / Current Selection',
+    'alice_turn': 'Red 第{frame}帧 / Red Frame {frame}',
+    'bob_turn': 'Blue 第{frame}帧 / Blue Frame {frame}',
+    'selection_complete': '已选完，按 SPACE 确认 / Selection complete, press SPACE to confirm',
+    'waiting_bob': '等待Blue确认... / Waiting for Blue...',
+    'waiting_alice': '等待Red确认... / Waiting for Red...',
+    'both_confirmed': '双方已确认！ / Both confirmed!',
+    'controlled_limit': '被控制，只能S或O / Controlled, can only use S or O',
+    'alice_needs_more': 'Red还需要 {count} 个 / Red needs {count} more',
+    'bob_needs_more': 'Blue还需要 {count} 个 / Blue needs {count} more',
+    'alice_undo': 'Red撤销: {action} / Red undo: {action}',
+    'bob_undo': 'Blue撤销: {action} / Blue undo: {action}',
+    'no_undo': '{player}无可撤销 / {player} nothing to undo',
+    'already_selected': '{player}已选2个 / {player} already selected 2',
+    'game_over_draw': '平局！ / Draw!',
+    'game_over_win': '{winner} 获胜！ / {winner} wins!',
+    'restart_hint': '按 R 重新开始 | ESC 退出 / Press R to restart | ESC to exit',
+    'turn_based_hint': 'Red和Blue轮流输入 / Red and Blue take turns'
 }
