@@ -1,6 +1,9 @@
 """
 config.py
-游戏配置文件 - 所有常量和配置
+游戏配置文件 - 所有常量和配置（重构版）
+
+修改：
+1. 删除 GRAB_DAMAGE_BUFF（抱摔不再增加受伤buff）
 """
 
 # ==================== 游戏基础设置 ====================
@@ -29,12 +32,12 @@ CHARGE_2_DAMAGE_BONUS = 3
 CHARGE_2_RANGE_BONUS = 1
 
 GRAB_DAMAGE = 4
-GRAB_DAMAGE_BUFF = 1  # 抱摔时执行者受伤+1（配合爆血结算后距离）
+# GRAB_DAMAGE_BUFF = 1  # 已删除：抱摔不再增加受伤buff
 
 THROW_DAMAGE = 2
 THROW_DISTANCE = 3
 
-COUNTER_DAMAGE = 1
+COUNTER_DAMAGE = 2
 DEFEND_REDUCTION = 1
 
 BURST_SELF_DAMAGE = 3
@@ -43,8 +46,7 @@ BURST_BASE_DAMAGE = 6
 CONTROL_RANGE = 1
 
 # ==================== 状态配置 ====================
-CHARGE_CONTROLLED_DAMAGE = 1
-CHARGE_INTERRUPTED_DAMAGE = 1
+CHARGE_INTERRUPTED_DAMAGE = 1  # 蓄力被打断的惩罚伤害
 DASH_MAX_STACKS = 2
 
 # ==================== 硬直配置 ====================

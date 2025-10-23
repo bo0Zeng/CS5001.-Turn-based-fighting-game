@@ -1,6 +1,11 @@
 """
 actions.py
-招式系统 - 纯状态生成（完全解耦终极版）
+招式系统 - 纯状态生成（完全状态化重构版）
+
+修改：
+1. 删除抱摔的位移
+2. 删除抱摔的受伤buff
+3. 抱摔后二者仍然重叠，由阶段7处理位移
 """
 
 from state import PositionState, DamageState, DefenseState, ControlState, BuffState, MarkerState
@@ -11,14 +16,8 @@ class Actions:
     """招式系统 - 纯状态生成，不修改Player属性"""
     
     @staticmethod
-    def attack(attacker, defender, distance):
-        """攻击 - 完全状态化版本
-        
-        Args:
-            attacker: 攻击者
-            defender: 防守者
-            distance: 预计算的距离
-        """
+    def attack(attacker, defender):
+        """攻击 - 无条件生成状态，距离判断交给combat_manager"""
         attack_range = ATTACK_RANGE
         damage = ATTACK_DAMAGE
         
@@ -40,86 +39,71 @@ class Actions:
             damage += attacker.dash_buff_stacks
             print(f"🏃 冲锋加成！伤害+{attacker.dash_buff_stacks}")
         
-        # 记录攻击尝试
+        # 记录攻击尝试和范围
         attacker.add_marker_state('tried_attack')
         attacker.attack_range_this_frame = attack_range
         
-        # 距离检查
-        if distance > attack_range:
-            print(f"❌ {attacker.name} 攻击距离不够（需{attack_range}格，实际{distance}格）")
-            return False
-        
-        print(f"⚔️ {attacker.name} 攻击 {defender.name}！")
-        
-        # 生成伤害状态
+        # 无条件生成伤害状态（距离检查后可能被移除）
         defender.add_damage_state(damage, source=attacker.name)
-        attacker.add_marker_state('dealt_damage')
+        
+        print(f"⚔️ {attacker.name} 尝试攻击 {defender.name}（范围{attack_range}格）")
         
         return True
     
     @staticmethod
-    def charge(player):
-        """蓄力
+    def charge(player, frame, current_turn):
+        """蓄力 - 生成pending状态"""
+        # 判断应该生成蓄力1还是蓄力2
+        level = 1
+        if player.charge_level == 1:
+            if player.can_stack_charge(current_turn, frame, 
+                                       player.last_charge_turn, 
+                                       player.last_charge_frame):
+                level = 2
         
-        注意：蓄力的堆叠逻辑在combat_manager中处理
-        """
-        print(f"✨ {player.name} 蓄力...")
+        # 生成pending状态（尚未确定是否成功）
+        player.add_buff_state('charge', 'pending', level)
+        print(f"✨ {player.name} 尝试蓄力{level}...")
+        
+        # 记录蓄力时机（用于下次判断连续）
+        player.last_charge_turn = current_turn
+        player.last_charge_frame = frame
+        
         return True
     
     @staticmethod
     def control(attacker, defender):
-        """控制 - 完全状态化版本
+        """控制 - 无条件生成状态，距离和冲突检查交给combat_manager"""
+        print(f"🔒 {attacker.name} 尝试控制 {defender.name}！")
         
-        生成：
-        - 拉近状态（pull）
-        - 被控制状态（controlled）
-        - 蓄力惩罚（如果有）
-        """
-        print(f"🔒 {attacker.name} 控制 {defender.name}！")
+        # 记录控制范围（用于距离检查）
+        attacker.control_range_this_frame = CONTROL_RANGE
         
-        # 生成拉近状态
-        defender.add_control_state('pull', target=attacker.position)
-        
-        # 生成被控制状态
+        # 无条件生成控制状态（距离检查后可能被移除）
+        # pull的target存储控制者名字，而不是位置（在结算时使用控制者的当前位置）
+        defender.add_control_state('pull', target=attacker.name)
         defender.add_control_state('controlled', target=attacker.name)
-        
-        # 蓄力惩罚
-        if defender.charge_level > 0:
-            print(f"💔 {defender.name} 失去蓄力（被控制）")
-            defender.add_buff_state('charge', 'lose')
-            defender.add_damage_state(CHARGE_CONTROLLED_DAMAGE, source="control_penalty")
+        attacker.add_marker_state('tried_control')
         
         return True
     
     @staticmethod
     def grab(attacker, defender):
-        """抱摔 - 纯状态生成
-        
-        前置条件：defender必须被控制
-        注意：前置条件已在combat_manager._preprocess()中检查
-              这里直接生成状态，无需验证
-        """
+        """抱摔 - 纯状态生成（已删除位移和受伤buff）"""
         print(f"🤼 {attacker.name} 抱摔 {defender.name}！")
         
+        # 只造成伤害，不推开，不增加受伤buff
         defender.add_damage_state(GRAB_DAMAGE, source=attacker.name)
         attacker.add_marker_state('dealt_damage')
-        attacker.add_buff_state('grab_damage', 'gain', GRAB_DAMAGE_BUFF)
         
-        push_delta = -1 if defender.is_left else 1
-        defender.add_position_state(push_delta)
-        
+        # 抱摔后解除控制（距离调整由阶段7处理）
         defender.add_control_state('release')
         
         return True
     
     @staticmethod
     def throw(attacker, defender):
-        """投掷 - 纯状态生成
-        
-        前置条件：defender必须被控制
-        注意：前置条件已在combat_manager._preprocess()中检查
-              这里直接生成状态，无需验证
-        """
+        """投掷 - 纯状态生成"""
         print(f"🌪️ {attacker.name} 投掷 {defender.name}！")
         
         defender.add_damage_state(THROW_DAMAGE, source=attacker.name)
@@ -127,8 +111,9 @@ class Actions:
         
         throw_delta = -1 if defender.is_left else 1
         for _ in range(THROW_DISTANCE):
-            defender.add_position_state(throw_delta)
+            defender.add_position_state(throw_delta, source=attacker.name)
         
+        # 投掷后解除控制
         defender.add_control_state('release')
         
         return True
@@ -142,25 +127,15 @@ class Actions:
     
     @staticmethod
     def counter(player):
-        """防御反击 - 生成防御状态
-        
-        注意：反击判定在combat_manager中处理
-        """
+        """防御反击 - 生成防御+反击准备状态"""
         print(f"⚔️🛡️ {player.name} 防御反击姿态")
         player.add_defense_state(DEFEND_REDUCTION)
+        player.add_marker_state('counter_prepared')
         return True
     
     @staticmethod
     def burst(attacker, defender, distance):
-        """爆血 - 完全状态化版本
-        
-        Args:
-            distance: 预计算的距离（包含所有位移后）
-        
-        伤害公式：
-        - 自损 = 3 + 距离
-        - 敌伤 = 6 - 距离
-        """
+        """爆血 - 完全状态化版本"""
         print(f"💥 {attacker.name} 爆血！")
         
         # 自损

@@ -1,6 +1,9 @@
 """
 player.py
-玩家类 - 纯状态管理（完全状态化终极版）
+玩家类 - 纯状态管理（完全状态化重构版）
+
+修改：
+1. 删除 grab_damage_buff 相关代码
 """
 
 from config import PLAYER_MAX_HP
@@ -14,11 +17,14 @@ class Player:
         self.hp = PLAYER_MAX_HP
         self.max_hp = PLAYER_MAX_HP
         self.position = position
-        self.is_left = None  # 固定身份（在CombatManager中设置）
+        self.is_left = None
         
         # ===== 持久状态 =====
         self.controlled = False
         self.controller = None
+        self.controlled_from_position = None
+        self.controlled_turn = -1
+        self.controlled_frame = -1
         self.charge_level = 0
         self.last_charge_turn = -1
         self.last_charge_frame = -1
@@ -30,30 +36,30 @@ class Player:
         self.last_hit_frame = -1
         
         # ===== 硬直追踪 =====
-        self.locked_frames = []  # [(turn, frame), ...]
+        self.locked_frames = []
         
         # ===== 待处理状态队列 =====
-        self.position_states = []   # 位置变化状态
-        self.damage_states = []     # 伤害状态
-        self.defense_states = []    # 防御状态
-        self.control_states = []    # 控制状态
-        self.buff_states = []       # Buff变化状态
-        self.marker_states = []     # 标记状态
+        self.position_states = []
+        self.damage_states = []
+        self.defense_states = []
+        self.control_states = []
+        self.buff_states = []
+        self.marker_states = []
         
-        # ===== 单帧临时标记（通过marker_states设置）=====
+        # ===== 单帧临时标记 =====
         self.position_before_move = position
         self.attack_range_this_frame = 0
+        self.control_range_this_frame = 0
         self.tried_attack_this_frame = False
         self.dealt_damage_this_frame = False
         self.took_damage_this_frame = False
         self.used_charge_2_this_frame = False
-        self.grab_damage_buff = 0
     
     # ========== 状态队列管理 ==========
-    def add_position_state(self, delta):
+    def add_position_state(self, delta, source="self"):
         """添加位置变化状态"""
         from state import PositionState
-        self.position_states.append(PositionState(delta))
+        self.position_states.append(PositionState(delta, source))
     
     def add_damage_state(self, amount, source=""):
         """添加伤害状态"""
@@ -90,15 +96,8 @@ class Player:
         self.marker_states = []
     
     def has_marker(self, marker_type):
-        """检查是否有某个标记
-        
-        Args:
-            marker_type: 标记类型
-            
-        Returns:
-            bool: True=有这个标记
-        """
-        return any(s.type == marker_type and not s.cancelled for s in self.marker_states)
+        """检查是否有某个标记"""
+        return any(s.type == marker_type for s in self.marker_states)
     
     # ========== 硬直管理 ==========
     def lock_frame(self, turn, frame):
@@ -143,11 +142,11 @@ class Player:
         """重置单帧状态（每帧开始时调用）"""
         self.position_before_move = self.position
         self.attack_range_this_frame = 0
+        self.control_range_this_frame = 0
         self.tried_attack_this_frame = False
         self.dealt_damage_this_frame = False
         self.took_damage_this_frame = False
         self.used_charge_2_this_frame = False
-        self.grab_damage_buff = 0
         self.clear_all_states()
     
     # ========== 显示 ==========
@@ -162,8 +161,6 @@ class Player:
             states.append(f"蓄力{self.charge_level}")
         if self.dash_buff_stacks > 0:
             states.append(f"冲锋x{self.dash_buff_stacks}")
-        if self.grab_damage_buff > 0:
-            states.append(f"抱摔伤+{self.grab_damage_buff}")
         if self.combo_count > 0:
             states.append(f"连击{self.combo_count}/3")
         
