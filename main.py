@@ -1,6 +1,6 @@
 """
 main.py
-主程序入口 - 完全状态化重构版测试 / Main Program Entry - Fully State-based Refactored Version Test
+主程序入口 - 测试 / Version Test
 """
 
 from player import Player

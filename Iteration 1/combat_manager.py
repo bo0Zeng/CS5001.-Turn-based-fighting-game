@@ -1,7 +1,7 @@
 """
 combat_manager.py
-战斗管理器 - 7阶段状态化重构版（Pull延迟生成版）
-Combat Manager - 7-Phase State-based Refactored Version (Pull Delayed Generation)
+战斗管理器 - 7阶段状态化重构版（Pull预测修复版）
+Combat Manager - 7-Phase State-based Refactored Version (Pull Prediction Fixed)
 
 主要修改： / Main Changes:
 1. 蓄力打断检测移到阶段6.2 / Charge interruption detection moved to phase 6.2
@@ -17,8 +17,6 @@ Combat Manager - 7-Phase State-based Refactored Version (Pull Delayed Generation
 11. 删除冗余临时标记字段（直接用has_marker） / Removed redundant temporary marker fields (use has_marker directly)
 12. 恢复release机制（增强可读性） / Restored release mechanism (enhanced readability)
 13. 修复位置预测考虑pull效果（爆血伤害正确） / Fixed position prediction to consider pull effect (burst damage correct)
-14. Pull延迟生成（验证成功后才生成，修复控制距离bug） / Pull delayed generation (generated after validation, fixed control distance bug)
-15. 阶段3两次预测（第一次验证控制，第二次验证爆血） / Phase 3 double prediction (1st for control, 2nd for burst)
 """
 
 from player import Player
@@ -275,34 +273,35 @@ class CombatManager:
         p2_tried = self.p2.has_marker('tried_control')
         
         if p1_tried and p2_tried:
-            # 检查是否都生成了controlled（pull在阶段3才生成）
-            p1_has_ctrl = any(s.type == 'controlled' for s in self.p2.control_states)
-            p2_has_ctrl = any(s.type == 'controlled' for s in self.p1.control_states)
+            p1_has_ctrl = any(s.type in ['pull', 'controlled'] for s in self.p2.control_states)
+            p2_has_ctrl = any(s.type in ['pull', 'controlled'] for s in self.p1.control_states)
             
             if p1_has_ctrl and p2_has_ctrl:
                 print(f"双方同时控制，都取消 / Both control simultaneously, both canceled")
-                # 只移除controlled（pull还未生成）
-                self.p1.control_states = [s for s in self.p1.control_states if s.type != 'controlled']
-                self.p2.control_states = [s for s in self.p2.control_states if s.type != 'controlled']
+                self.p1.control_states = [s for s in self.p1.control_states if s.type not in ['pull', 'controlled']]
+                self.p2.control_states = [s for s in self.p2.control_states if s.type not in ['pull', 'controlled']]
     
     # ========== 阶段3：生效检测 ==========
     def _stage3_validate_states(self, p1_act, p2_act):
         """阶段3：检测状态生效（主要是距离） / Phase 3: Validate state effectiveness (mainly distance)"""
         
-        # ========== 第一次预测（不含pull，因为还未验证）==========
+        # ========== 第一步：控制验证（用原始距离，pull前）==========
+        original_distance = self.get_distance()
+        print(f"  原始距离: {original_distance} / Original distance: {original_distance}")
+        
+        self._validate_control(self.p1, self.p2, original_distance)
+        self._validate_control(self.p2, self.p1, original_distance)
+        
+        # ========== 第二步：预计算位置（pull已验证通过）==========
         pred_p1_pos, pred_p2_pos = self._predict_final_positions()
         pred_distance = abs(pred_p1_pos - pred_p2_pos)
-        print(f"  预测位置（第一次）：{self.p1.name}->{pred_p1_pos}, {self.p2.name}->{pred_p2_pos}, 距离={pred_distance}")
-        print(f"  Predicted pos (1st): {self.p1.name}->{pred_p1_pos}, {self.p2.name}->{pred_p2_pos}, dist={pred_distance}")
+        print(f"  预测位置：{self.p1.name}->{pred_p1_pos}, {self.p2.name}->{pred_p2_pos}, 距离={pred_distance}")
+        print(f"  Predicted pos: {self.p1.name}->{pred_p1_pos}, {self.p2.name}->{pred_p2_pos}, dist={pred_distance}")
         
-        # ========== 验证攻击和控制（用第一次预测）==========
+        # ========== 第三步：其他验证（用预测距离，pull后）==========
         # 攻击距离检查 / Attack distance check
         self._validate_attack(self.p1, self.p2, pred_distance)
         self._validate_attack(self.p2, self.p1, pred_distance)
-        
-        # 控制距离检查（成功后会生成pull） / Control distance check (generates pull on success)
-        self._validate_control(self.p1, self.p2, pred_distance)
-        self._validate_control(self.p2, self.p1, pred_distance)
         
         # 反击生效 / Counter effectiveness
         self._validate_counter(self.p1, self.p2)
@@ -312,17 +311,9 @@ class CombatManager:
         self._check_dodge(self.p1, self.p2, p1_act, p2_act)
         self._check_dodge(self.p2, self.p1, p2_act, p1_act)
         
-        # ========== 第二次预测（含pull，如果控制成功）==========
-        final_p1_pos, final_p2_pos = self._predict_final_positions()
-        final_distance = abs(final_p1_pos - final_p2_pos)
-        if final_distance != pred_distance:
-            print(f"  预测位置（第二次，含pull）：{self.p1.name}->{final_p1_pos}, {self.p2.name}->{final_p2_pos}, 距离={final_distance}")
-            print(f"  Predicted pos (2nd, with pull): {self.p1.name}->{final_p1_pos}, {self.p2.name}->{final_p2_pos}, dist={final_distance}")
-        
-        # ========== 验证爆血（用第二次预测，包含pull效果）==========
         # 爆血生效（用预测距离） / Burst effectiveness (use predicted distance)
-        self._validate_burst(self.p1, self.p2, final_distance)
-        self._validate_burst(self.p2, self.p1, final_distance)
+        self._validate_burst(self.p1, self.p2, pred_distance)
+        self._validate_burst(self.p2, self.p1, pred_distance)
     
     def _validate_attack(self, attacker, defender, pred_distance):
         """验证攻击是否有效 / Validate attack effectiveness"""
@@ -336,32 +327,27 @@ class CombatManager:
             print(f"{attacker.name} attack missed (dist{pred_distance}>range{attacker.attack_range_this_frame})")
         else:
             attacker.add_marker_state('dealt_damage')
-            defender.add_marker_state('took_damage')  # ✅ 确认将受伤
             print(f"{attacker.name} 攻击命中 / {attacker.name} attack hit")
     
     def _validate_control(self, attacker, defender, pred_distance):
-        """验证控制是否有效（成功后生成pull）/ Validate control effectiveness (generates pull on success)"""
+        """验证控制是否有效 / Validate control effectiveness"""
         if not attacker.has_marker('tried_control'):
             return
         
         if attacker.controlled:
             # 被控制者无法控制 / Controlled player cannot control others
-            defender.control_states = [s for s in defender.control_states if s.type != 'controlled']
+            defender.control_states = [s for s in defender.control_states if s.type not in ['pull', 'controlled']]
             print(f"{attacker.name} 被控制，无法控制他人 / {attacker.name} controlled, cannot control others")
             attacker.add_control_state('stun', CONTROL_MISS_STUN_FRAMES)
         elif pred_distance > attacker.control_range_this_frame:
             # 距离不够 / Distance not enough
-            defender.control_states = [s for s in defender.control_states if s.type != 'controlled']
+            defender.control_states = [s for s in defender.control_states if s.type not in ['pull', 'controlled']]
             print(f"{attacker.name} 控制未命中（距离{pred_distance}>范围{attacker.control_range_this_frame}）")
             print(f"{attacker.name} control missed (dist{pred_distance}>range{attacker.control_range_this_frame})")
             attacker.add_control_state('stun', CONTROL_MISS_STUN_FRAMES)
         else:
-            # 控制成功 / Control successful
+            # 控制成功，记录被控制前的位置 / Control successful, record position before control
             print(f"{attacker.name} 控制成功 / {attacker.name} control successful")
-            
-            # ✅ 验证成功后才生成pull状态
-            defender.add_control_state('pull', target=attacker.name)
-            print(f"  生成pull状态 / Generate pull state")
             
             # 记录被控制前的位置（在pull之前记录） / Record position before control (before pull)
             if defender.controlled_from_position is None:
@@ -387,7 +373,6 @@ class CombatManager:
             opponent.add_damage_state(COUNTER_DAMAGE, source=f"{player.name}_counter")
             # 反击也标记造成伤害（会触发buff消耗） / Counter also marks dealt damage (triggers buff consumption)
             player.add_marker_state('dealt_damage')
-            opponent.add_marker_state('took_damage')  # ✅ 确认对手将受伤
             print(f"  对{opponent.name}施加反击伤害 / Apply counter damage to {opponent.name}")
         else:
             print(f"{player.name} 反击失败（未受攻击）/ {player.name} counter failed (not attacked)")
@@ -404,7 +389,6 @@ class CombatManager:
         # 自损
         self_damage = BURST_SELF_DAMAGE + distance
         attacker.add_damage_state(self_damage, source="burst_self")
-        attacker.add_marker_state('took_damage')  # ✅ 确认自己将受伤
         print(f"   {attacker.name}自损{self_damage}(3+{distance}距离) / {attacker.name} self-damage {self_damage}(3+{distance} dist)")
         
         # 敌伤
@@ -412,7 +396,6 @@ class CombatManager:
         if enemy_damage > 0:
             defender.add_damage_state(enemy_damage, source=attacker.name)
             attacker.add_marker_state('dealt_damage')
-            defender.add_marker_state('took_damage')  # ✅ 确认对手将受伤
             print(f"   {defender.name}受{enemy_damage}伤(6-{distance}距离) / {defender.name} takes {enemy_damage} damage(6-{distance} dist)")
         else:
             print(f"   距离过远，无法伤敌 / Distance too far, cannot damage enemy")
@@ -720,7 +703,7 @@ class CombatManager:
         # ===== 应用伤害 / Apply damage =====
         if p1_final > 0:
             self.p1.hp = max(0, self.p1.hp - p1_final)
-            # took_damage标记已在阶段3设置，这里不再重复设置
+            self.p1.add_marker_state('took_damage')
             print(f"{self.p1.name} 受{p1_final}伤，HP: {self.p1.hp}/{self.p1.max_hp}")
             print(f"{self.p1.name} took {p1_final} damage, HP: {self.p1.hp}/{self.p1.max_hp}")
         elif total_dmg > 0:
@@ -728,7 +711,7 @@ class CombatManager:
         
         if p2_final > 0:
             self.p2.hp = max(0, self.p2.hp - p2_final)
-            # took_damage标记已在阶段3设置，这里不再重复设置
+            self.p2.add_marker_state('took_damage')
             print(f"{self.p2.name} 受{p2_final}伤，HP: {self.p2.hp}/{self.p2.max_hp}")
             print(f"{self.p2.name} took {p2_final} damage, HP: {self.p2.hp}/{self.p2.max_hp}")
         elif total_dmg > 0:
