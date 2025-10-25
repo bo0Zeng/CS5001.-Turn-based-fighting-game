@@ -1,7 +1,11 @@
 """
 state.py
-状态系统 - 纯数据结构定义（移除release状态）
-State System - Pure Data Structure Definitions (Removed release state)
+状态系统 - 纯数据结构定义（重构版）
+State System - Pure Data Structure Definitions (Refactored)
+
+重构要点：
+1. MarkerState改名为ActionState
+2. 扩展ActionState以支持do_xxx和be_xxx模式
 """
 
 
@@ -64,10 +68,11 @@ class BuffState:
         return f"Buff({self.type}:{self.action}={self.value})"
 
 
-class MarkerState:
-    """标记状态（帧内事件标记） / Marker State (In-frame Event Markers)"""
-    def __init__(self, marker_type):
-        self.type = marker_type     # 'tried_attack', 'dealt_damage', 'took_damage', 'used_charge_2', 'counter_prepared', 'counter_ready', 'tried_control'
+class ActionState:
+    """行动状态（帧内事件标记，原MarkerState）/ Action State (In-frame Event Markers)"""
+    def __init__(self, action_type, value=0):
+        self.type = action_type     # 'do_attack', 'do_control', 'do_burst', 'be_attacked', 'be_controlled', etc.
+        self.value = value          # 附加值（如攻击范围、伤害等） / Additional value (e.g., attack range, damage)
     
     def __repr__(self):
-        return f"Mark({self.type})"
+        return f"Action({self.type}, val={self.value})"

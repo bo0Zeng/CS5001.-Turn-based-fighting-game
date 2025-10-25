@@ -1,12 +1,12 @@
 """
 player.py
-玩家类 - 纯状态管理（删除冗余字段版）
-Player Class - Pure State Management (Removed Redundant Fields)
+玩家类 - 纯状态管理（重构版）
+Player Class - Pure State Management (Refactored)
 
-修改： / Changes:
-1. 删除 grab_damage_buff 相关代码 / Removed grab_damage_buff related code
-2. 删除临时标记字段（改用marker_states查询）/ Removed temporary marker fields (use marker_states query)
-3. 删除 position_before_move（调用时position未改变）/ Removed position_before_move (position unchanged at call time)
+重构要点：
+1. marker_states改名为action_states
+2. 所有has_marker改为has_action
+3. add_marker_state改为add_action_state
 """
 
 from config import PLAYER_MAX_HP
@@ -47,11 +47,10 @@ class Player:
         self.defense_states = []
         self.control_states = []
         self.buff_states = []
-        self.marker_states = []
+        self.action_states = []  # 原marker_states
         
-        # ===== 单帧临时属性（用于范围计算）===== / ===== Single Frame Temporary Properties (for range calculation) =====
-        self.attack_range_this_frame = 0
-        self.control_range_this_frame = 0
+        # ===== 单帧临时属性 ===== / ===== Single Frame Temporary Properties =====
+        # （这些将通过action_states查询，不再需要单独字段）
     
     # ========== 状态队列管理 ==========
     def add_position_state(self, delta, source="self"):
@@ -79,10 +78,10 @@ class Player:
         from state import BuffState
         self.buff_states.append(BuffState(buff_type, action, value))
     
-    def add_marker_state(self, marker_type):
-        """添加标记状态 / Add marker state"""
-        from state import MarkerState
-        self.marker_states.append(MarkerState(marker_type))
+    def add_action_state(self, action_type, value=0):
+        """添加行动状态（原add_marker_state）/ Add action state"""
+        from state import ActionState
+        self.action_states.append(ActionState(action_type, value))
     
     def clear_all_states(self):
         """清空所有状态队列 / Clear all state queues"""
@@ -91,11 +90,18 @@ class Player:
         self.defense_states = []
         self.control_states = []
         self.buff_states = []
-        self.marker_states = []
+        self.action_states = []
     
-    def has_marker(self, marker_type):
-        """检查是否有某个标记 / Check if has a specific marker"""
-        return any(s.type == marker_type for s in self.marker_states)
+    def has_action(self, action_type):
+        """检查是否有某个行动状态（原has_marker）/ Check if has a specific action state"""
+        return any(s.type == action_type for s in self.action_states)
+    
+    def get_action_value(self, action_type):
+        """获取行动状态的值 / Get action state value"""
+        for s in self.action_states:
+            if s.type == action_type:
+                return s.value
+        return 0
     
     # ========== 硬直管理 ==========
     def lock_frame(self, turn, frame):
@@ -138,8 +144,6 @@ class Player:
     # ========== 帧重置 ==========
     def reset_frame(self):
         """重置单帧状态（每帧开始时调用） / Reset single frame state (called at the start of each frame)"""
-        self.attack_range_this_frame = 0
-        self.control_range_this_frame = 0
         self.clear_all_states()
     
     # ========== 显示 ==========
