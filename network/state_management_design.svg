@@ -1,0 +1,224 @@
+<svg viewBox="0 0 1400 1200" xmlns="http://www.w3.org/2000/svg">
+  <!-- Title -->
+  <text x="700" y="30" font-size="26" font-weight="bold" text-anchor="middle" fill="#2c3e50">
+    State-Based Design vs Direct Modification
+  </text>
+  <text x="700" y="60" font-size="22" font-weight="bold" text-anchor="middle" fill="#34495e">
+    状态驱动设计 vs 直接修改数值
+  </text>
+  
+  <!-- Comparison Section -->
+  <rect x="50" y="90" width="650" height="320" fill="#ffe0e0" stroke="#dc3545" stroke-width="3" rx="10"/>
+  <text x="375" y="120" font-size="18" font-weight="bold" text-anchor="middle" fill="#dc3545">
+    ❌ Traditional: Direct Modification / 传统方式：直接修改
+  </text>
+  
+  <!-- Traditional flow boxes -->
+  <rect x="70" y="140" width="200" height="80" fill="#ffffff" stroke="#dc3545" stroke-width="2" rx="5"/>
+  <text x="170" y="165" font-size="14" font-weight="bold" text-anchor="middle" fill="#2c3e50">Action: attack()</text>
+  <text x="170" y="185" font-size="11" text-anchor="middle" fill="#666">攻击函数</text>
+  <text x="170" y="205" font-size="10" text-anchor="middle" fill="#888">opponent.hp -= 1</text>
+  
+  <rect x="290" y="140" width="200" height="80" fill="#ffffff" stroke="#dc3545" stroke-width="2" rx="5"/>
+  <text x="390" y="165" font-size="14" font-weight="bold" text-anchor="middle" fill="#2c3e50">Action: control()</text>
+  <text x="390" y="185" font-size="11" text-anchor="middle" fill="#666">控制函数</text>
+  <text x="390" y="205" font-size="10" text-anchor="middle" fill="#888">opponent.controlled = True</text>
+  
+  <rect x="510" y="140" width="200" height="80" fill="#ffffff" stroke="#dc3545" stroke-width="2" rx="5"/>
+  <text x="610" y="165" font-size="14" font-weight="bold" text-anchor="middle" fill="#2c3e50">Action: move()</text>
+  <text x="610" y="185" font-size="11" text-anchor="middle" fill="#666">移动函数</text>
+  <text x="610" y="205" font-size="10" text-anchor="middle" fill="#888">self.position += 1</text>
+  
+  <!-- Problems list -->
+  <rect x="70" y="240" width="620" height="150" fill="#fff5f5" stroke="#dc3545" stroke-width="2" rx="5"/>
+  <text x="380" y="265" font-size="14" font-weight="bold" text-anchor="middle" fill="#dc3545">
+    Problems / 问题
+  </text>
+  <text x="90" y="290" font-size="12" text-anchor="start" fill="#333">
+    ❌ Tight coupling: Actions directly modify opponent
+  </text>
+  <text x="110" y="308" font-size="11" text-anchor="start" fill="#666">
+    紧耦合：动作直接修改对手属性
+  </text>
+  <text x="90" y="330" font-size="12" text-anchor="start" fill="#333">
+    ❌ Hard to validate: Modify first, check later (or never)
+  </text>
+  <text x="110" y="348" font-size="11" text-anchor="start" fill="#666">
+    难以验证：先修改，后检查（或不检查）
+  </text>
+  <text x="90" y="370" font-size="12" text-anchor="start" fill="#333">
+    ❌ Order matters: Execution sequence affects results
+  </text>
+  <text x="110" y="388" font-size="11" text-anchor="start" fill="#666">
+    顺序敏感：执行顺序影响结果，容易出bug
+  </text>
+
+  <!-- State-based approach -->
+  <rect x="730" y="90" width="620" height="320" fill="#e0f0e0" stroke="#28a745" stroke-width="3" rx="10"/>
+  <text x="1040" y="120" font-size="18" font-weight="bold" text-anchor="middle" fill="#28a745">
+    ✓ State-Based: Generate then Apply / 状态驱动：生成再应用
+  </text>
+  
+  <!-- State-based flow boxes -->
+  <rect x="750" y="140" width="180" height="80" fill="#ffffff" stroke="#28a745" stroke-width="2" rx="5"/>
+  <text x="840" y="165" font-size="14" font-weight="bold" text-anchor="middle" fill="#2c3e50">Action: attack()</text>
+  <text x="840" y="185" font-size="11" text-anchor="middle" fill="#666">攻击函数</text>
+  <text x="840" y="205" font-size="10" text-anchor="middle" fill="#28a745">add_action_state()</text>
+  
+  <rect x="950" y="140" width="180" height="80" fill="#ffffff" stroke="#28a745" stroke-width="2" rx="5"/>
+  <text x="1040" y="165" font-size="14" font-weight="bold" text-anchor="middle" fill="#2c3e50">Action: control()</text>
+  <text x="1040" y="185" font-size="11" text-anchor="middle" fill="#666">控制函数</text>
+  <text x="1040" y="205" font-size="10" text-anchor="middle" fill="#28a745">add_action_state()</text>
+  
+  <rect x="1150" y="140" width="180" height="80" fill="#ffffff" stroke="#28a745" stroke-width="2" rx="5"/>
+  <text x="1240" y="165" font-size="14" font-weight="bold" text-anchor="middle" fill="#2c3e50">Action: move()</text>
+  <text x="1240" y="185" font-size="11" text-anchor="middle" fill="#666">移动函数</text>
+  <text x="1240" y="205" font-size="10" text-anchor="middle" fill="#28a745">add_position_state()</text>
+  
+  <!-- Advantages list -->
+  <rect x="750" y="240" width="580" height="150" fill="#f0fff0" stroke="#28a745" stroke-width="2" rx="5"/>
+  <text x="1040" y="265" font-size="14" font-weight="bold" text-anchor="middle" fill="#28a745">
+    Advantages / 优势
+  </text>
+  <text x="770" y="290" font-size="12" text-anchor="start" fill="#333">
+    ✓ Loose coupling: Actions only declare intent
+  </text>
+  <text x="790" y="308" font-size="11" text-anchor="start" fill="#666">
+    松耦合：动作只声明意图，不直接修改对方
+  </text>
+  <text x="770" y="330" font-size="12" text-anchor="start" fill="#333">
+    ✓ Centralized validation: Manager checks before applying
+  </text>
+  <text x="790" y="348" font-size="11" text-anchor="start" fill="#666">
+    集中验证：管理器统一检查有效性后再应用
+  </text>
+  <text x="770" y="370" font-size="12" text-anchor="start" fill="#333">
+    ✓ Deterministic: Fixed 7-phase order, predictable results
+  </text>
+  <text x="790" y="388" font-size="11" text-anchor="start" fill="#666">
+    确定性：固定7阶段顺序，结果可预测
+  </text>
+
+  <!-- Main Flow: State Generation and Execution -->
+  <rect x="50" y="450" width="1300" height="700" fill="#f0f8ff" stroke="#0066cc" stroke-width="3" rx="10"/>
+  <text x="700" y="480" font-size="20" font-weight="bold" text-anchor="middle" fill="#0066cc">
+    State-Based Execution Flow / 状态驱动执行流程
+  </text>
+
+  <!-- Step 1: Action generates states -->
+  <rect x="80" y="510" width="280" height="180" fill="#fff" stroke="#ff6347" stroke-width="3" rx="8"/>
+  <text x="220" y="540" font-size="16" font-weight="bold" text-anchor="middle" fill="#ff6347">
+    Step 1: Generate States
+  </text>
+  <text x="220" y="560" font-size="14" text-anchor="middle" fill="#666">
+    步骤1：生成状态
+  </text>
+  <rect x="100" y="580" width="240" height="45" fill="#ffe0e0" stroke="#ff6347" stroke-width="1" rx="3"/>
+  <text x="220" y="600" font-size="12" text-anchor="middle" fill="#333">Actions.attack(attacker)</text>
+  <text x="220" y="615" font-size="10" text-anchor="middle" fill="#666">↓</text>
+  <rect x="100" y="630" width="240" height="45" fill="#fff5f5" stroke="#ff6347" stroke-width="1" rx="3"/>
+  <text x="220" y="650" font-size="11" text-anchor="middle" fill="#333">attacker.add_action_state(</text>
+  <text x="220" y="665" font-size="11" text-anchor="middle" fill="#333">'do_attack', range)</text>
+
+  <!-- Step 2: States queued in player -->
+  <rect x="400" y="510" width="280" height="180" fill="#fff" stroke="#9c27b0" stroke-width="3" rx="8"/>
+  <text x="540" y="540" font-size="16" font-weight="bold" text-anchor="middle" fill="#9c27b0">
+    Step 2: Queue States
+  </text>
+  <text x="540" y="560" font-size="14" text-anchor="middle" fill="#666">
+    步骤2：状态入队
+  </text>
+  <rect x="420" y="580" width="240" height="100" fill="#f3e5f5" stroke="#9c27b0" stroke-width="1" rx="3"/>
+  <text x="540" y="600" font-size="12" font-weight="bold" text-anchor="middle" fill="#333">Player State Queues</text>
+  <text x="540" y="618" font-size="11" text-anchor="middle" fill="#666">action_states[]</text>
+  <text x="540" y="635" font-size="11" text-anchor="middle" fill="#666">position_states[]</text>
+  <text x="540" y="652" font-size="11" text-anchor="middle" fill="#666">damage_states[]</text>
+  <text x="540" y="669" font-size="11" text-anchor="middle" fill="#666">...</text>
+
+  <!-- Step 3: Combat Manager validates -->
+  <rect x="720" y="510" width="280" height="180" fill="#fff" stroke="#2196f3" stroke-width="3" rx="8"/>
+  <text x="860" y="540" font-size="16" font-weight="bold" text-anchor="middle" fill="#2196f3">
+    Step 3: Validate States
+  </text>
+  <text x="860" y="560" font-size="14" text-anchor="middle" fill="#666">
+    步骤3：验证状态
+  </text>
+  <rect x="740" y="580" width="240" height="100" fill="#e3f2fd" stroke="#2196f3" stroke-width="1" rx="3"/>
+  <text x="860" y="600" font-size="12" font-weight="bold" text-anchor="middle" fill="#333">CombatManager</text>
+  <text x="860" y="618" font-size="11" text-anchor="middle" fill="#666">Check distance valid?</text>
+  <text x="860" y="635" font-size="11" text-anchor="middle" fill="#666">Check controlled?</text>
+  <text x="860" y="652" font-size="11" text-anchor="middle" fill="#666">Check conflicts?</text>
+  <text x="860" y="669" font-size="11" text-anchor="middle" fill="#666">Generate opponent states</text>
+
+  <!-- Step 4: Apply to opponent -->
+  <rect x="1040" y="510" width="280" height="180" fill="#fff" stroke="#28a745" stroke-width="3" rx="8"/>
+  <text x="1180" y="540" font-size="16" font-weight="bold" text-anchor="middle" fill="#28a745">
+    Step 4: Apply States
+  </text>
+  <text x="1180" y="560" font-size="14" text-anchor="middle" fill="#666">
+    步骤4：应用状态
+  </text>
+  <rect x="1060" y="580" width="240" height="100" fill="#e8f5e9" stroke="#28a745" stroke-width="1" rx="3"/>
+  <text x="1180" y="600" font-size="12" font-weight="bold" text-anchor="middle" fill="#333">Settlement Phase</text>
+  <text x="1180" y="618" font-size="11" text-anchor="middle" fill="#666">opponent.damage_states[]</text>
+  <text x="1180" y="635" font-size="11" text-anchor="middle" fill="#666">→ opponent.hp -= damage</text>
+  <text x="1180" y="655" font-size="11" text-anchor="middle" fill="#666">opponent.position_states[]</text>
+  <text x="1180" y="672" font-size="11" text-anchor="middle" fill="#666">→ opponent.position += delta</text>
+
+  <!-- Arrows between steps -->
+  <path d="M 360 600 L 400 600" stroke="#555" stroke-width="3" fill="none" marker-end="url(#arrowhead2)"/>
+  <path d="M 680 600 L 720 600" stroke="#555" stroke-width="3" fill="none" marker-end="url(#arrowhead2)"/>
+  <path d="M 1000 600 L 1040 600" stroke="#555" stroke-width="3" fill="none" marker-end="url(#arrowhead2)"/>
+
+  <!-- 7 Phase details -->
+  <rect x="80" y="720" width="1240" height="400" fill="#ffffff" stroke="#28a745" stroke-width="2" rx="8"/>
+  <text x="700" y="750" font-size="16" font-weight="bold" text-anchor="middle" fill="#28a745">
+    CombatManager 7-Phase Execution / 战斗管理器7阶段执行
+  </text>
+  
+  <text x="120" y="780" font-size="13" font-weight="bold" text-anchor="start" fill="#2c3e50">Phase 1:</text>
+  <text x="200" y="780" font-size="12" text-anchor="start" fill="#666">Actions generate do_xxx states (self only)</text>
+  <text x="200" y="797" font-size="11" text-anchor="start" fill="#999">动作生成do_xxx状态（仅自己）</text>
+  
+  <text x="120" y="820" font-size="13" font-weight="bold" text-anchor="start" fill="#2c3e50">Phase 2:</text>
+  <text x="200" y="820" font-size="12" text-anchor="start" fill="#666">Conflict detection (controlled restrictions, overlap rules)</text>
+  <text x="200" y="837" font-size="11" text-anchor="start" fill="#999">冲突检测（控制限制、重叠规则）</text>
+  
+  <text x="120" y="860" font-size="13" font-weight="bold" text-anchor="start" fill="#2c3e50">Phase 3:</text>
+  <text x="200" y="860" font-size="12" text-anchor="start" fill="#666">Validate effectiveness, add be_xxx states to opponent</text>
+  <text x="200" y="877" font-size="11" text-anchor="start" fill="#999">验证有效性，为对方添加be_xxx状态</text>
+  
+  <text x="120" y="900" font-size="13" font-weight="bold" text-anchor="start" fill="#2c3e50">Phase 4:</text>
+  <text x="200" y="900" font-size="12" text-anchor="start" fill="#666">Combo system (track consecutive hits)</text>
+  <text x="200" y="917" font-size="11" text-anchor="start" fill="#999">连击系统（追踪连续命中）</text>
+  
+  <text x="120" y="940" font-size="13" font-weight="bold" text-anchor="start" fill="#2c3e50">Phase 5:</text>
+  <text x="200" y="940" font-size="12" text-anchor="start" fill="#666">Stun system (lock future frames)</text>
+  <text x="200" y="957" font-size="11" text-anchor="start" fill="#999">硬直系统（锁定未来帧）</text>
+  
+  <text x="120" y="980" font-size="13" font-weight="bold" text-anchor="start" fill="#2c3e50">Phase 6:</text>
+  <text x="200" y="980" font-size="12" text-anchor="start" fill="#666">Settlement: Buffs → Control → Position → Damage</text>
+  <text x="200" y="997" font-size="11" text-anchor="start" fill="#999">结算：Buffs → 控制 → 位置 → 伤害</text>
+  
+  <text x="120" y="1020" font-size="13" font-weight="bold" text-anchor="start" fill="#2c3e50">Phase 7:</text>
+  <text x="200" y="1020" font-size="12" text-anchor="start" fill="#666">Control release and distance adjustment</text>
+  <text x="200" y="1037" font-size="11" text-anchor="start" fill="#999">控制解除和距离调整</text>
+  
+  <rect x="100" y="1060" width="1200" height="40" fill="#fff9e6" stroke="#ffc107" stroke-width="2" rx="5"/>
+  <text x="700" y="1085" font-size="13" font-weight="bold" text-anchor="middle" fill="#856404">
+    Finally: player.reset_frame() - Clear all state queues for next frame
+  </text>
+
+  <!-- Key insight box -->
+  <rect x="400" y="1165" width="600" height="20" fill="#e3f2fd" stroke="#2196f3" stroke-width="2" rx="5"/>
+  <text x="700" y="1180" font-size="12" font-weight="bold" text-anchor="middle" fill="#1565c0">
+    Key: Actions declare intent, Manager validates &amp; applies in controlled order
+  </text>
+
+  <!-- Arrow markers -->
+  <defs>
+    <marker id="arrowhead2" markerWidth="12" markerHeight="12" refX="11" refY="6" orient="auto">
+      <polygon points="0 0, 12 6, 0 12" fill="#555"/>
+    </marker>
+  </defs>
+</svg>

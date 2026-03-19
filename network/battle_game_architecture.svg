@@ -1,0 +1,164 @@
+<svg viewBox="0 0 1200 900" xmlns="http://www.w3.org/2000/svg">
+  <!-- Title -->
+  <text x="600" y="30" font-size="24" font-weight="bold" text-anchor="middle" fill="#2c3e50">
+    Turn-Based Battle Game Architecture
+  </text>
+  <text x="600" y="55" font-size="20" font-weight="bold" text-anchor="middle" fill="#34495e">
+    回合制战斗游戏架构图
+  </text>
+  
+  <!-- Presentation Layer -->
+  <rect x="50" y="100" width="1100" height="180" fill="#e8f4f8" stroke="#3498db" stroke-width="3" rx="10"/>
+  <text x="600" y="130" font-size="18" font-weight="bold" text-anchor="middle" fill="#2980b9">
+    Presentation Layer / 表现层
+  </text>
+  
+  <!-- gameui.py -->
+  <rect x="100" y="150" width="450" height="110" fill="#ffffff" stroke="#3498db" stroke-width="2" rx="5"/>
+  <text x="325" y="180" font-size="16" font-weight="bold" text-anchor="middle" fill="#2c3e50">gameui.py</text>
+  <text x="325" y="205" font-size="13" text-anchor="middle" fill="#555">Visual Interface / 可视化界面</text>
+  <text x="325" y="225" font-size="11" text-anchor="middle" fill="#666">• Pygame rendering / Pygame渲染</text>
+  <text x="325" y="242" font-size="11" text-anchor="middle" fill="#666">• Input handling / 输入处理</text>
+  
+  <!-- game_data.py -->
+  <rect x="600" y="150" width="500" height="110" fill="#ffffff" stroke="#3498db" stroke-width="2" rx="5"/>
+  <text x="850" y="180" font-size="16" font-weight="bold" text-anchor="middle" fill="#2c3e50">game_data.py</text>
+  <text x="850" y="205" font-size="13" text-anchor="middle" fill="#555">Game Data / 游戏数据</text>
+  <text x="850" y="225" font-size="11" text-anchor="middle" fill="#666">• Key mappings / 按键映射</text>
+  <text x="850" y="242" font-size="11" text-anchor="middle" fill="#666">• Skill descriptions / 技能说明</text>
+
+  <!-- Business Logic Layer -->
+  <rect x="50" y="320" width="1100" height="280" fill="#e8f5e9" stroke="#27ae60" stroke-width="3" rx="10"/>
+  <text x="600" y="350" font-size="18" font-weight="bold" text-anchor="middle" fill="#27ae60">
+    Business Logic Layer / 业务逻辑层
+  </text>
+  
+  <!-- combat_manager.py -->
+  <rect x="100" y="370" width="450" height="210" fill="#ffffff" stroke="#27ae60" stroke-width="2" rx="5"/>
+  <text x="325" y="400" font-size="16" font-weight="bold" text-anchor="middle" fill="#2c3e50">combat_manager.py</text>
+  <text x="325" y="425" font-size="13" text-anchor="middle" fill="#555">Combat Manager / 战斗管理器</text>
+  <text x="325" y="448" font-size="11" text-anchor="middle" fill="#666">• 7-phase turn execution / 7阶段回合执行</text>
+  <text x="325" y="468" font-size="11" text-anchor="middle" fill="#666">• State validation / 状态验证</text>
+  <text x="325" y="488" font-size="11" text-anchor="middle" fill="#666">• Combo &amp; stun system / 连击硬直系统</text>
+  <text x="325" y="508" font-size="11" text-anchor="middle" fill="#666">• Damage calculation / 伤害计算</text>
+  <text x="325" y="528" font-size="11" text-anchor="middle" fill="#666">• Position conflict resolution / 位置冲突解决</text>
+  <text x="325" y="548" font-size="11" text-anchor="middle" fill="#666">• Control state management / 控制状态管理</text>
+
+  <!-- actions.py -->
+  <rect x="600" y="370" width="220" height="100" fill="#ffffff" stroke="#27ae60" stroke-width="2" rx="5"/>
+  <text x="710" y="400" font-size="16" font-weight="bold" text-anchor="middle" fill="#2c3e50">actions.py</text>
+  <text x="710" y="425" font-size="13" text-anchor="middle" fill="#555">Action System / 招式系统</text>
+  <text x="710" y="448" font-size="11" text-anchor="middle" fill="#666">• State generation / 状态生成</text>
+
+  <!-- ai_player.py -->
+  <rect x="600" y="480" width="220" height="100" fill="#ffffff" stroke="#27ae60" stroke-width="2" rx="5"/>
+  <text x="710" y="510" font-size="16" font-weight="bold" text-anchor="middle" fill="#2c3e50">ai_player.py</text>
+  <text x="710" y="535" font-size="13" text-anchor="middle" fill="#555">AI Player / AI玩家</text>
+  <text x="710" y="558" font-size="11" text-anchor="middle" fill="#666">• Decision tree / 决策树</text>
+
+  <!-- network.py -->
+  <rect x="870" y="370" width="230" height="210" fill="#ffffff" stroke="#27ae60" stroke-width="2" rx="5"/>
+  <text x="985" y="400" font-size="16" font-weight="bold" text-anchor="middle" fill="#2c3e50">network.py</text>
+  <text x="985" y="425" font-size="13" text-anchor="middle" fill="#555">Network Module / 网络模块</text>
+  <text x="985" y="448" font-size="11" text-anchor="middle" fill="#666">• NetworkServer / 网络服务器</text>
+  <text x="985" y="468" font-size="11" text-anchor="middle" fill="#666">• NetworkClient / 网络客户端</text>
+  <text x="985" y="488" font-size="11" text-anchor="middle" fill="#666">• LAN multiplayer / 局域网联机</text>
+  <text x="985" y="508" font-size="11" text-anchor="middle" fill="#666">• Action synchronization</text>
+  <text x="985" y="528" font-size="11" text-anchor="middle" fill="#666">  行动同步</text>
+
+  <!-- Data Layer -->
+  <rect x="50" y="640" width="1100" height="220" fill="#fff3e0" stroke="#f39c12" stroke-width="3" rx="10"/>
+  <text x="600" y="670" font-size="18" font-weight="bold" text-anchor="middle" fill="#e67e22">
+    Data Layer / 数据层
+  </text>
+  
+  <!-- player.py -->
+  <rect x="100" y="690" width="220" height="150" fill="#ffffff" stroke="#f39c12" stroke-width="2" rx="5"/>
+  <text x="210" y="720" font-size="16" font-weight="bold" text-anchor="middle" fill="#2c3e50">player.py</text>
+  <text x="210" y="745" font-size="13" text-anchor="middle" fill="#555">Player / 玩家</text>
+  <text x="210" y="768" font-size="11" text-anchor="middle" fill="#666">• Pure state / 纯状态</text>
+  <text x="210" y="788" font-size="11" text-anchor="middle" fill="#666">• HP, position / 血量位置</text>
+  <text x="210" y="808" font-size="11" text-anchor="middle" fill="#666">• Buffs &amp; combo / Buff连击</text>
+  <text x="210" y="828" font-size="11" text-anchor="middle" fill="#666">• State queues / 状态队列</text>
+
+  <!-- state.py -->
+  <rect x="370" y="690" width="230" height="150" fill="#ffffff" stroke="#f39c12" stroke-width="2" rx="5"/>
+  <text x="485" y="720" font-size="16" font-weight="bold" text-anchor="middle" fill="#2c3e50">state.py</text>
+  <text x="485" y="745" font-size="13" text-anchor="middle" fill="#555">State System / 状态系统</text>
+  <text x="485" y="768" font-size="11" text-anchor="middle" fill="#666">• PositionState / 位置状态</text>
+  <text x="485" y="788" font-size="11" text-anchor="middle" fill="#666">• DamageState / 伤害状态</text>
+  <text x="485" y="808" font-size="11" text-anchor="middle" fill="#666">• ControlState / 控制状态</text>
+  <text x="485" y="828" font-size="11" text-anchor="middle" fill="#666">• BuffState, etc. / Buff状态等</text>
+
+  <!-- config.py -->
+  <rect x="650" y="690" width="450" height="150" fill="#ffffff" stroke="#f39c12" stroke-width="2" rx="5"/>
+  <text x="875" y="720" font-size="16" font-weight="bold" text-anchor="middle" fill="#2c3e50">config.py</text>
+  <text x="875" y="745" font-size="13" text-anchor="middle" fill="#555">Configuration / 配置文件</text>
+  <text x="875" y="768" font-size="11" text-anchor="middle" fill="#666">• Game constants / 游戏常量</text>
+  <text x="875" y="788" font-size="11" text-anchor="middle" fill="#666">• Skill parameters / 技能参数 (damage, range, etc.)</text>
+  <text x="875" y="808" font-size="11" text-anchor="middle" fill="#666">• UI settings / UI设置 (colors, sizes, etc.)</text>
+  <text x="875" y="828" font-size="11" text-anchor="middle" fill="#666">• Map &amp; player config / 地图玩家配置</text>
+
+  <!-- Arrows - Presentation to Logic (vertical between layers) -->
+  <!-- gameui to combat_manager -->
+  <path d="M 325 260 L 325 370" stroke="#555" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  <text x="340" y="310" font-size="12" fill="#555">calls / 调用</text>
+  
+  <!-- game_data to actions -->
+  <path d="M 710 260 L 710 370" stroke="#555" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  
+  <!-- game_data to network -->
+  <path d="M 985 260 L 985 370" stroke="#555" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+
+  <!-- Arrows - Logic to Data (vertical between layers) -->
+  <!-- combat_manager to player -->
+  <path d="M 210 580 L 210 690" stroke="#555" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  <text x="225" y="630" font-size="12" fill="#555">manages / 管理</text>
+  
+  <!-- combat_manager to state -->
+  <path d="M 420 580 L 485 690" stroke="#555" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  
+  <!-- actions to state (from bottom of actions to top of state) -->
+  <path d="M 710 470 L 710 620 L 530 620 L 530 690" stroke="#555" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  
+  <!-- ai_player to player (from bottom of ai_player, around state, to top of player) -->
+  <path d="M 600 530 L 80 530 L 80 765 L 100 765" stroke="#555" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+
+  <!-- Horizontal arrows in Logic layer (between boxes, not through them) -->
+  <!-- combat_manager to actions -->
+  <path d="M 550 420 L 600 420" stroke="#555" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  <text x="560" y="410" font-size="11" fill="#555">generates states</text>
+  <text x="560" y="438" font-size="11" fill="#555">生成状态</text>
+
+  <!-- combat_manager to ai_player -->
+  <path d="M 550 530 L 600 530" stroke="#555" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  <text x="560" y="520" font-size="11" fill="#555">chooses actions</text>
+  <text x="560" y="548" font-size="11" fill="#555">选择行动</text>
+
+  <!-- network to combat_manager -->
+  <path d="M 870 475 L 550 475" stroke="#555" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  <text x="660" y="465" font-size="11" fill="#555">syncs actions</text>
+  <text x="670" y="492" font-size="11" fill="#555">同步行动</text>
+
+  <!-- Config arrows (from config top to logic layer bottom) -->
+  <path d="M 875 690 L 875 600" stroke="#999" stroke-width="1.5" stroke-dasharray="5,5" fill="none"/>
+  <text x="885" y="645" font-size="11" fill="#999">provides constants</text>
+  <text x="885" y="660" font-size="11" fill="#999">提供常量</text>
+
+  <!-- Arrow marker definition -->
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#555"/>
+    </marker>
+  </defs>
+
+  <!-- Legend -->
+  <rect x="50" y="870" width="15" height="15" fill="#e8f4f8" stroke="#3498db" stroke-width="1"/>
+  <text x="70" y="882" font-size="12" fill="#333">Presentation / 表现层</text>
+  
+  <rect x="250" y="870" width="15" height="15" fill="#e8f5e9" stroke="#27ae60" stroke-width="1"/>
+  <text x="270" y="882" font-size="12" fill="#333">Business Logic / 业务逻辑层</text>
+  
+  <rect x="500" y="870" width="15" height="15" fill="#fff3e0" stroke="#f39c12" stroke-width="1"/>
+  <text x="520" y="882" font-size="12" fill="#333">Data / 数据层</text>
+</svg>

@@ -1,0 +1,33 @@
+# PPO训练配置文件
+# PPO Training Configuration
+
+# 注意：状态维度为66维（18+18+6+24）
+# Note: State dimension is 66 (18+18+6+24)
+
+# 环境配置 / Environment Configuration
+environment:
+  reward_type: dense  # 奖励类型: 'dense' 或 'sparse'
+  max_turns: 30       # 最大回合数
+  verbose: false      # 是否打印详细信息
+
+# 智能体配置 / Agent Configuration
+agent:
+  hidden_sizes: [256, 128]  # 隐藏层大小
+  learning_rate: 0.0003     # 学习率
+  gamma: 0.99               # 折扣因子
+  gae_lambda: 0.95          # GAE参数
+  clip_epsilon: 0.2         # PPO裁剪参数
+  value_coef: 0.5           # 价值损失系数
+  entropy_coef: 0.01        # 熵损失系数
+  max_grad_norm: 0.5        # 最大梯度范数
+
+# 训练配置 / Training Configuration
+training:
+  num_iterations: 1000           # 训练迭代次数
+  episodes_per_iteration: 100    # 每次迭代的episode数
+  update_epochs: 4               # 每次迭代的更新轮数
+  batch_size: 64                 # 批大小
+  log_interval: 10               # 日志记录间隔
+  save_interval: 50              # 模型保存间隔
+  eval_interval: 20              # 评估间隔
+  eval_episodes: 10              # 评估episode数量

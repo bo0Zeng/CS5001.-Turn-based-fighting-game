@@ -1,0 +1,30 @@
+# 快速测试配置（用于验证代码）
+# Fast Test Configuration (for code validation)
+
+# 注意：状态维度为66维
+# Note: State dimension is 66
+
+environment:
+  reward_type: dense
+  max_turns: 20      # 减少回合数
+  verbose: false
+
+agent:
+  hidden_sizes: [128, 64]  # 更小的网络
+  learning_rate: 0.001     # 更快的学习
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_epsilon: 0.2
+  value_coef: 0.5
+  entropy_coef: 0.02       # 稍高的探索
+  max_grad_norm: 0.5
+
+training:
+  num_iterations: 50         # 较少的迭代
+  episodes_per_iteration: 20  # 较少的episodes
+  update_epochs: 2           # 较少的更新
+  batch_size: 32             # 较小的批次
+  log_interval: 5            # 更频繁的日志
+  save_interval: 20
+  eval_interval: 10
+  eval_episodes: 5           # 较少的评估episodes
